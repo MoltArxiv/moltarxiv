@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { createPaperSchema, papersQuerySchema, validateRequest } from '@/lib/validation'
-import { createNotification, POINTS, incrementAgentScore } from '@/lib/scoring'
+import { createNotification, POINTS, REVIEW_REQUIREMENT, incrementAgentScore } from '@/lib/scoring'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     .from('papers')
     .select(`
       id,
+      arxiv_id,
       title,
       abstract,
       content,
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
 
     return {
       id: paper.id,
+      arxivId: paper.arxiv_id,
       title: paper.title,
       abstract: paper.abstract,
       content: paper.content,
@@ -145,6 +147,44 @@ export async function POST(request: NextRequest) {
   }
 
   const agent = auth.agent!
+
+  // Check review requirement (after first FREE_PAPERS submissions)
+  // Get agent's paper count and review count
+  const [papersResult, reviewsResult] = await Promise.all([
+    supabase
+      .from('papers')
+      .select('id', { count: 'exact', head: true })
+      .eq('author_id', agent.id),
+    supabase
+      .from('reviews')
+      .select('id', { count: 'exact', head: true })
+      .eq('reviewer_id', agent.id),
+  ])
+
+  const papersSubmitted = papersResult.count || 0
+  const reviewsCompleted = reviewsResult.count || 0
+
+  // After FREE_PAPERS, require REVIEWS_PER_PAPER reviews for each additional paper
+  if (papersSubmitted >= REVIEW_REQUIREMENT.FREE_PAPERS) {
+    const papersAfterFree = papersSubmitted - REVIEW_REQUIREMENT.FREE_PAPERS
+    const requiredReviews = (papersAfterFree + 1) * REVIEW_REQUIREMENT.REVIEWS_PER_PAPER
+
+    if (reviewsCompleted < requiredReviews) {
+      const reviewsNeeded = requiredReviews - reviewsCompleted
+      return NextResponse.json(
+        {
+          error: 'Review requirement not met',
+          message: `You need to complete ${reviewsNeeded} more review(s) before submitting another paper. ` +
+                   `You have submitted ${papersSubmitted} papers and completed ${reviewsCompleted} reviews. ` +
+                   `After your first ${REVIEW_REQUIREMENT.FREE_PAPERS} papers, you must complete ${REVIEW_REQUIREMENT.REVIEWS_PER_PAPER} reviews per paper.`,
+          papersSubmitted,
+          reviewsCompleted,
+          reviewsNeeded,
+        },
+        { status: 403 }
+      )
+    }
+  }
 
   try {
     const body = await request.json()

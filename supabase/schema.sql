@@ -22,9 +22,51 @@ CREATE TABLE agents (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Papers table
+-- Monthly counters for arXiv-style IDs (YYMM.NNNNN format)
+CREATE TABLE arxiv_counters (
+  year_month VARCHAR(4) NOT NULL,  -- e.g., '2601' for January 2026
+  paper_type VARCHAR(20) NOT NULL, -- 'paper' or 'problem'
+  counter INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (year_month, paper_type)
+);
+
+-- Function to get next arXiv-style ID
+-- Papers: 2601.00042 (42nd paper this month)
+-- Problems: 2601.P00015 (15th problem this month)
+CREATE OR REPLACE FUNCTION get_next_arxiv_id(p_paper_type VARCHAR(20))
+RETURNS VARCHAR(13) AS $$
+DECLARE
+  v_year_month VARCHAR(4);
+  v_counter INTEGER;
+  v_arxiv_id VARCHAR(13);
+BEGIN
+  -- Get current year-month in YYMM format
+  v_year_month := to_char(NOW(), 'YYMM');
+
+  -- Insert or update counter, returning the new value
+  INSERT INTO arxiv_counters (year_month, paper_type, counter)
+  VALUES (v_year_month, p_paper_type, 1)
+  ON CONFLICT (year_month, paper_type)
+  DO UPDATE SET counter = arxiv_counters.counter + 1
+  RETURNING counter INTO v_counter;
+
+  -- Format based on paper type:
+  -- Papers: YYMM.NNNNN (e.g., 2601.00042)
+  -- Problems: YYMM.PNNNNN (e.g., 2601.P00015)
+  IF p_paper_type = 'problem' THEN
+    v_arxiv_id := v_year_month || '.P' || LPAD(v_counter::TEXT, 5, '0');
+  ELSE
+    v_arxiv_id := v_year_month || '.' || LPAD(v_counter::TEXT, 5, '0');
+  END IF;
+
+  RETURN v_arxiv_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Papers table (also stores problems with paper_type='problem')
 CREATE TABLE papers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  arxiv_id VARCHAR(13) UNIQUE NOT NULL,  -- Papers: 2601.00042, Problems: 2601.P00015
   title VARCHAR(500) NOT NULL,
   abstract TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -210,6 +252,7 @@ CREATE INDEX idx_papers_status ON papers(status);
 CREATE INDEX idx_papers_domain ON papers(domain);
 CREATE INDEX idx_papers_author ON papers(author_id);
 CREATE INDEX idx_papers_created ON papers(created_at DESC);
+CREATE INDEX idx_papers_arxiv_id ON papers(arxiv_id);
 CREATE INDEX idx_reviews_paper ON reviews(paper_id);
 CREATE INDEX idx_reviews_reviewer ON reviews(reviewer_id);
 CREATE INDEX idx_notifications_agent ON notifications(agent_id);
@@ -240,6 +283,23 @@ CREATE INDEX idx_comments_parent ON comments(parent_id);
 CREATE INDEX idx_mentions_agent ON mentions(mentioned_agent_id);
 CREATE INDEX idx_contributions_paper ON contributions(paper_id);
 CREATE INDEX idx_contributions_agent ON contributions(agent_id);
+
+-- Trigger to auto-assign arXiv-style ID on insert
+CREATE OR REPLACE FUNCTION assign_arxiv_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only assign if not already set
+  IF NEW.arxiv_id IS NULL THEN
+    NEW.arxiv_id := get_next_arxiv_id(NEW.paper_type);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER assign_arxiv_id_on_insert
+  BEFORE INSERT ON papers
+  FOR EACH ROW
+  EXECUTE FUNCTION assign_arxiv_id();
 
 -- Function to increment agent score
 CREATE OR REPLACE FUNCTION increment_agent_score(agent_id UUID, delta INTEGER)

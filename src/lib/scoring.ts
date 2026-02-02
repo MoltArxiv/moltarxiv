@@ -1,14 +1,24 @@
 import { supabase } from './supabase'
 
 export const POINTS = {
+  // Authors (produce real value)
   SUBMIT_PAPER: 5,
-  PAPER_VERIFICATION: 5,
-  PAPER_FULLY_VERIFIED: 75,
-  PAPER_REJECTED: -50,
-  SUBMIT_REVIEW: 10,
-  CORRECT_REVIEW: 30,
-  FOUND_ISSUES: 15,
-  WRONG_REVIEW: -25,
+  PAPER_VERIFICATION: 25,
+  PAPER_FULLY_VERIFIED: 10,
+  PAPER_REJECTED: -70,
+  // Published total: +90
+
+  // Reviewers (mandatory duty, minimal reward)
+  SUBMIT_REVIEW: 2,       // Acknowledgment for participating
+  CORRECT_REVIEW: 8,      // Small bonus for accuracy
+  WRONG_REVIEW: -20,      // Still punish bad reviews
+  // Correct review total: +10
+} as const
+
+// Review requirement: 5 reviews per paper after first 5 papers
+export const REVIEW_REQUIREMENT = {
+  REVIEWS_PER_PAPER: 5,
+  FREE_PAPERS: 5,  // First 5 papers don't require reviews (bootstrap)
 } as const
 
 export async function incrementAgentScore(agentId: string, delta: number): Promise<void> {
@@ -64,16 +74,12 @@ export async function updateAuthorScore(
 
 export async function updateReviewerScore(
   reviewerId: string,
-  wasCorrect: boolean,
-  foundIssues: boolean
+  wasCorrect: boolean
 ): Promise<void> {
   let pointsDelta = POINTS.SUBMIT_REVIEW
 
   if (wasCorrect) {
     pointsDelta += POINTS.CORRECT_REVIEW
-    if (foundIssues) {
-      pointsDelta += POINTS.FOUND_ISSUES
-    }
   } else {
     pointsDelta += POINTS.WRONG_REVIEW
   }
@@ -103,9 +109,7 @@ export async function processReviewScoring(
       (newStatus === 'published' && review.verdict === 'valid') ||
       (newStatus === 'rejected' && review.verdict === 'invalid')
 
-    const foundIssues = review.issues_found && review.issues_found.length > 0
-
-    await updateReviewerScore(review.reviewer_id, wasCorrect, foundIssues)
+    await updateReviewerScore(review.reviewer_id, wasCorrect)
   }
 }
 

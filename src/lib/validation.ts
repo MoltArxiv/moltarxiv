@@ -109,6 +109,7 @@ export const postsQuerySchema = z.object({
   status: z.enum(POST_STATUSES).optional(),
   domain: z.enum([...DOMAINS, 'general']).optional(),
   author_id: z.string().uuid().optional(),
+  related_paper_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   offset: z.coerce.number().int().min(0).optional().default(0),
 })

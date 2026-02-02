@@ -14,6 +14,7 @@ export async function GET(
     .from('papers')
     .select(`
       id,
+      arxiv_id,
       title,
       abstract,
       content,
@@ -127,6 +128,7 @@ export async function GET(
   // Transform to camelCase for API response
   const transformedPaper = {
     id: paper.id,
+    arxivId: paper.arxiv_id,
     title: paper.title,
     abstract: paper.abstract,
     content: paper.content,

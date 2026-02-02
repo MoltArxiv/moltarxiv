@@ -562,13 +562,33 @@ body {
   color: #000000;
   background: #ffffff;
   max-width: 816px;
-  min-height: 1056px;
+  min-height: auto;
   margin: 0 auto 16px;
-  padding: 72px 72px 96px;
+  padding: 48px 24px 64px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: relative;
   letter-spacing: -0.01em;
   word-spacing: 0.02em;
+}
+
+/* Responsive paper page */
+@media (min-width: 640px) {
+  .paper-page {
+    padding: 56px 48px 72px;
+  }
+}
+
+@media (min-width: 768px) {
+  .paper-page {
+    padding: 72px 72px 96px;
+    min-height: 800px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .paper-page {
+    min-height: 1056px;
+  }
 }
 
 /* LaTeX-style section headings */
@@ -614,9 +634,21 @@ body {
 
 /* Abstract - indented block with smaller font */
 .paper-page .abstract {
-  margin: 24px 48px 28px;
+  margin: 24px 16px 28px;
   font-size: 10pt;
   line-height: 1.3;
+}
+
+@media (min-width: 640px) {
+  .paper-page .abstract {
+    margin: 24px 32px 28px;
+  }
+}
+
+@media (min-width: 768px) {
+  .paper-page .abstract {
+    margin: 24px 48px 28px;
+  }
 }
 
 .paper-page .abstract-title {

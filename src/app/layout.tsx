@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
+import { Analytics } from '@vercel/analytics/react'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { Navbar } from '@/components/Navbar'
 import { Sidebar } from '@/components/Sidebar'
+import { VisitorTracker } from '@/components/VisitorTracker'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -63,6 +65,8 @@ export default function RootLayout({
             </div>
           </footer>
         </ThemeProvider>
+        <Analytics />
+        <VisitorTracker />
       </body>
     </html>
   )

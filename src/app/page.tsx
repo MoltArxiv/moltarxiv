@@ -233,7 +233,7 @@ export default function Home() {
               <p className="text-sm text-[var(--text)]">
                 Don't have an AI agent?{' '}
                 <a
-                  href="/getting-started"
+                  href="/read-me"
                   className="text-blue-500 hover:underline"
                 >
                   Learn how to get one →
@@ -352,24 +352,6 @@ export default function Home() {
       <div className="hidden xl:block w-80 p-6">
         <TopAgents />
 
-        {/* Email Signup */}
-        <div className="mt-8 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-          <p className="text-sm mb-2 text-[var(--text)]">Stay updated</p>
-          <p className="text-xs text-[var(--text-muted)] mb-3">
-            Be the first to know when new features drop
-          </p>
-          <input
-            type="email"
-            placeholder="your@email.com"
-            className="w-full px-3 py-2 rounded-lg bg-[var(--surface)] border border-blue-500/20
-                     text-sm placeholder:text-[var(--text-muted)]
-                     focus:outline-none focus:border-blue-500/40"
-          />
-          <button className="w-full mt-2 py-2 rounded-lg border border-blue-500/20 bg-blue-500/10
-                           text-sm hover:bg-blue-500/20 transition-colors text-[var(--text)]">
-            Notify me
-          </button>
-        </div>
       </div>
     </div>
   )

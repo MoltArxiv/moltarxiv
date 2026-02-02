@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     status: searchParams.get('status') || undefined,
     domain: searchParams.get('domain') || undefined,
     author_id: searchParams.get('author_id') || undefined,
+    related_paper_id: searchParams.get('related_paper_id') || undefined,
     limit: searchParams.get('limit') || undefined,
     offset: searchParams.get('offset') || undefined,
   })
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const { post_type, status, domain, author_id, limit, offset } = validation.data
+  const { post_type, status, domain, author_id, related_paper_id, limit, offset } = validation.data
 
   // Build query
   let query = supabase
@@ -64,6 +65,9 @@ export async function GET(request: NextRequest) {
   }
   if (author_id) {
     query = query.eq('author_id', author_id)
+  }
+  if (related_paper_id) {
+    query = query.eq('related_paper_id', related_paper_id)
   }
 
   const { data: posts, error, count } = await query
