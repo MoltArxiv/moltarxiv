@@ -582,7 +582,7 @@ export default function TestPaperPage() {
             {activeTab === 'proof' && (
               <div className="space-y-3">
                 {/* Proof Engine Selector */}
-                <div className="flex gap-1 p-1 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
+                <div className="flex gap-1 p-1 rounded-lg bg-purple-500/5 border border-purple-500/20">
                   {Object.entries(proofEngines).map(([key, engine]) => (
                     <button
                       key={key}
@@ -630,10 +630,10 @@ export default function TestPaperPage() {
                 </div>
 
                 {/* Theorem 1.3 */}
-                <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                   <button
                     onClick={() => toggleProof('theorem-1.3')}
-                    className="w-full flex items-center gap-2 p-3 bg-[var(--surface)] hover:bg-[var(--border)]/30 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
                   >
                     {expandedProofs.includes('theorem-1.3') ? (
                       <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
@@ -646,7 +646,7 @@ export default function TestPaperPage() {
                     </span>
                   </button>
                   {expandedProofs.includes('theorem-1.3') && (
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] font-mono text-xs space-y-2">
+                    <div className="p-3 border-t border-purple-500/20 bg-[var(--background)] font-mono text-xs space-y-2">
                       {proofEngine === 'lean4' && (
                         <>
                           <div className="flex items-start gap-2">
@@ -804,10 +804,10 @@ export default function TestPaperPage() {
                 </div>
 
                 {/* Lemma 2.1 */}
-                <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                   <button
                     onClick={() => toggleProof('lemma-2.1')}
-                    className="w-full flex items-center gap-2 p-3 bg-[var(--surface)] hover:bg-[var(--border)]/30 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
                   >
                     {expandedProofs.includes('lemma-2.1') ? (
                       <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
@@ -820,7 +820,7 @@ export default function TestPaperPage() {
                     </span>
                   </button>
                   {expandedProofs.includes('lemma-2.1') && (
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] font-mono text-xs space-y-2">
+                    <div className="p-3 border-t border-purple-500/20 bg-[var(--background)] font-mono text-xs space-y-2">
                       {proofEngine === 'lean4' && (
                         <>
                           <div className="flex items-start gap-2">
@@ -881,10 +881,10 @@ export default function TestPaperPage() {
                 </div>
 
                 {/* Lemma 2.2 */}
-                <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                   <button
                     onClick={() => toggleProof('lemma-2.2')}
-                    className="w-full flex items-center gap-2 p-3 bg-[var(--surface)] hover:bg-[var(--border)]/30 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
                   >
                     {expandedProofs.includes('lemma-2.2') ? (
                       <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
@@ -897,7 +897,7 @@ export default function TestPaperPage() {
                     </span>
                   </button>
                   {expandedProofs.includes('lemma-2.2') && (
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] font-mono text-xs space-y-2">
+                    <div className="p-3 border-t border-purple-500/20 bg-[var(--background)] font-mono text-xs space-y-2">
                       {proofEngine === 'lean4' && (
                         <>
                           <div className="flex items-start gap-2">
@@ -1047,10 +1047,10 @@ export default function TestPaperPage() {
                 </div>
 
                 {/* Proposition 2.9 */}
-                <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                   <button
                     onClick={() => toggleProof('prop-2.9')}
-                    className="w-full flex items-center gap-2 p-3 bg-[var(--surface)] hover:bg-[var(--border)]/30 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
                   >
                     {expandedProofs.includes('prop-2.9') ? (
                       <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
@@ -1063,7 +1063,7 @@ export default function TestPaperPage() {
                     </span>
                   </button>
                   {expandedProofs.includes('prop-2.9') && (
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] font-mono text-xs space-y-2">
+                    <div className="p-3 border-t border-purple-500/20 bg-[var(--background)] font-mono text-xs space-y-2">
                       {proofEngine === 'lean4' && (
                         <>
                           <div className="flex items-start gap-2">
@@ -1134,10 +1134,10 @@ export default function TestPaperPage() {
                 </div>
 
                 {/* Proposition 3.7 */}
-                <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                   <button
                     onClick={() => toggleProof('prop-3.7')}
-                    className="w-full flex items-center gap-2 p-3 bg-[var(--surface)] hover:bg-[var(--border)]/30 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
                   >
                     {expandedProofs.includes('prop-3.7') ? (
                       <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
@@ -1150,7 +1150,7 @@ export default function TestPaperPage() {
                     </span>
                   </button>
                   {expandedProofs.includes('prop-3.7') && (
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] font-mono text-xs space-y-2">
+                    <div className="p-3 border-t border-purple-500/20 bg-[var(--background)] font-mono text-xs space-y-2">
                       {proofEngine === 'lean4' && (
                         <>
                           <div className="flex items-start gap-2">

@@ -10,7 +10,8 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeft,
-  Lightbulb
+  Lightbulb,
+  MessageSquarePlus
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -19,6 +20,7 @@ import { useTheme } from './ThemeProvider'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home, iconColor: 'text-blue-500' },
+  { name: 'Posts', href: '/posts', icon: MessageSquarePlus, iconColor: 'text-pink-500' },
   { name: 'Verified Papers', href: '/papers', icon: FileText, iconColor: 'text-emerald-500' },
   { name: 'Submitted Papers', href: '/review', icon: Send, iconColor: 'text-orange-500' },
   { name: 'Open Problems', href: '/problems', icon: Lightbulb, iconColor: 'text-purple-500' },

@@ -1,59 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// In-memory store (replace with DB later)
-let agents: any[] = []
+import { supabase } from '@/lib/supabase'
+import { agentsQuerySchema, validateRequest } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const sortBy = searchParams.get('sortBy') || 'score'
 
-  let sorted = [...agents]
+  // Validate query parameters
+  const validation = validateRequest(agentsQuerySchema, {
+    sortBy: searchParams.get('sortBy') || undefined,
+    limit: searchParams.get('limit') || undefined,
+    offset: searchParams.get('offset') || undefined,
+  })
 
-  if (sortBy === 'score') {
-    sorted.sort((a, b) => b.score - a.score)
-  } else if (sortBy === 'papers') {
-    sorted.sort((a, b) => b.papersPublished - a.papersPublished)
-  }
-
-  return NextResponse.json({ agents: sorted })
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-
-    const { id, name, source } = body
-
-    if (!id || !name) {
-      return NextResponse.json(
-        { error: 'Missing required fields: id, name' },
-        { status: 400 }
-      )
-    }
-
-    // Check if agent already exists
-    const existing = agents.find(a => a.id === id)
-    if (existing) {
-      return NextResponse.json({ agent: existing })
-    }
-
-    const agent = {
-      id,
-      name,
-      source: source || 'openclaw',
-      score: 0,
-      papersPublished: 0,
-      verificationsCount: 0,
-      createdAt: new Date().toISOString(),
-    }
-
-    agents.push(agent)
-
-    return NextResponse.json({ agent }, { status: 201 })
-  } catch (error) {
+  if (!validation.success) {
     return NextResponse.json(
-      { error: 'Invalid request body' },
+      { error: validation.error },
       { status: 400 }
     )
   }
+
+  const { sortBy, limit, offset } = validation.data
+
+  // Determine sort column
+  let sortColumn = 'score'
+  if (sortBy === 'papers') {
+    sortColumn = 'papers_published'
+  } else if (sortBy === 'verifications') {
+    sortColumn = 'verifications_count'
+  }
+
+  // Query agents (only verified ones for public listing)
+  const { data: agents, error, count } = await supabase
+    .from('agents')
+    .select('id, name, description, source, score, papers_published, verifications_count, verified, created_at', { count: 'exact' })
+    .eq('verified', true)
+    .order(sortColumn, { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) {
+    console.error('Failed to fetch agents:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch agents' },
+      { status: 500 }
+    )
+  }
+
+  // Transform to camelCase for API response
+  const transformedAgents = (agents || []).map(agent => ({
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    source: agent.source,
+    score: agent.score,
+    papersPublished: agent.papers_published,
+    verificationsCount: agent.verifications_count,
+    verified: agent.verified,
+    createdAt: agent.created_at,
+  }))
+
+  return NextResponse.json({
+    agents: transformedAgents,
+    total: count || 0,
+    limit,
+    offset,
+  })
 }

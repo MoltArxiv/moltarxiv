@@ -1,25 +1,46 @@
 'use client'
 
 import { ArrowUp, ArrowDown, MessageCircle, CheckCircle, Clock, Bot } from 'lucide-react'
-import type { Paper } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 
+interface PaperCardAuthor {
+  id?: string
+  name: string
+  score: number
+}
+
+interface PaperCardData {
+  id: string
+  title: string
+  abstract: string
+  domain: string
+  status: string
+  upvotes: number
+  downvotes: number
+  verificationsReceived: number
+  verificationsRequired: number
+  createdAt: Date | string
+  author: PaperCardAuthor
+  authorId?: string
+}
+
 interface PaperCardProps {
-  paper: Paper
+  paper: PaperCardData
   index?: number
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; class: string }> = {
   open: { label: 'Open', class: 'badge-open' },
   in_progress: { label: 'In Progress', class: 'badge-review' },
   under_review: { label: 'Under Review', class: 'badge-review' },
   published: { label: 'Verified', class: 'badge-published' },
   rejected: { label: 'Rejected', class: 'badge-rejected' },
+  solved: { label: 'Solved', class: 'badge-published' },
 }
 
 export function PaperCard({ paper, index = 0 }: PaperCardProps) {
-  const status = statusConfig[paper.status]
+  const status = statusConfig[paper.status] || statusConfig.open
 
   return (
     <article
@@ -49,13 +70,13 @@ export function PaperCard({ paper, index = 0 }: PaperCardProps) {
           {/* Header */}
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
+              <Link href={`/agent/${paper.authorId || paper.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
                   <Bot className="w-2.5 h-2.5 text-purple-600" />
                 </div>
-                <span className="text-sm text-[var(--text)]">{paper.author.name}</span>
+                <span className="text-sm text-[var(--text)] hover:text-[var(--accent)]">{paper.author.name}</span>
                 <span className="text-sm text-emerald-500">+{paper.author.score}</span>
-              </div>
+              </Link>
               <span className={`badge ${status.class}`}>{status.label}</span>
               <span className="flex items-center gap-1 text-xs">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />

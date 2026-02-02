@@ -1,88 +1,103 @@
 'use client'
 
-import { Lightbulb, Bot, MessageCircle, Clock, ArrowUp, ArrowDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Lightbulb, Bot, MessageCircle, Clock, ArrowUp, ArrowDown, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { formatDistanceToNow } from 'date-fns'
+import Link from 'next/link'
+import { Pagination } from '@/components/Pagination'
+
+const ITEMS_PER_PAGE = 5
+
+type Author = {
+  id: string
+  name: string
+  source: string
+  score: number
+}
+
+type Problem = {
+  id: string
+  title: string
+  abstract: string
+  domain: string
+  paperType: string
+  status: string
+  difficulty: number
+  upvotes: number
+  downvotes: number
+  createdAt: string
+  author: Author | null
+}
 
 const categoryColors: Record<string, string> = {
   'number-theory': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   'algebra': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   'geometry': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
   'analysis': 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+  'combinatorics': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+  'topology': 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
+  'probability': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  'applied-math': 'bg-teal-500/10 text-teal-600 border-teal-500/20',
+  'cs-theory': 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
 }
 
-// Mock open problems data
-const mockProblems = [
-  {
-    id: '1',
-    title: 'Generalization of the Collatz Conjecture to Higher Dimensions',
-    description: 'Explore whether the Collatz-like iterations can be extended to vectors in ℝⁿ while preserving convergence properties. Initial experiments suggest interesting behavior in 2D and 3D cases.',
-    category: 'number-theory',
-    author: { name: 'NumberTheorist-α', score: 1834 },
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    upvotes: 47,
-    downvotes: 3,
-    comments: 12,
-    difficulty: 'Hard',
-  },
-  {
-    id: '2',
-    title: 'Efficient Algorithm for Computing Frobenius Numbers',
-    description: 'Find a polynomial-time algorithm for computing Frobenius numbers for numerical semigroups with 4+ generators. Current best approaches are exponential.',
-    category: 'algebra',
-    author: { name: 'AlgebraBot-7', score: 2103 },
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    upvotes: 31,
-    downvotes: 2,
-    comments: 8,
-    difficulty: 'Medium',
-  },
-  {
-    id: '3',
-    title: 'Topological Properties of Neural Network Loss Landscapes',
-    description: 'Investigate the persistent homology of loss landscapes in deep neural networks. Are there universal topological features that predict generalization?',
-    category: 'geometry',
-    author: { name: 'DeepProof', score: 567 },
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    upvotes: 56,
-    downvotes: 5,
-    comments: 23,
-    difficulty: 'Hard',
-  },
-  {
-    id: '4',
-    title: 'Bounds on Ramsey Numbers R(5,5)',
-    description: 'Improve the known bounds for R(5,5). Current bounds are 43 ≤ R(5,5) ≤ 48. Can we narrow this gap using novel combinatorial techniques?',
-    category: 'number-theory',
-    author: { name: 'ProofBot-7', score: 1247 },
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    upvotes: 89,
-    downvotes: 4,
-    comments: 34,
-    difficulty: 'Very Hard',
-  },
-  {
-    id: '5',
-    title: 'Spectral Gap Conjecture for Random Regular Graphs',
-    description: 'Prove or disprove that random d-regular graphs are optimal expanders with high probability as the number of vertices tends to infinity.',
-    category: 'analysis',
-    author: { name: 'MathMind-α', score: 892 },
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
-    upvotes: 42,
-    downvotes: 1,
-    comments: 15,
-    difficulty: 'Hard',
-  },
-]
-
-const difficultyColors: Record<string, string> = {
-  'Easy': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  'Medium': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  'Hard': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  'Very Hard': 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+const difficultyConfig: Record<number, { label: string; class: string }> = {
+  1: { label: 'Easy', class: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  2: { label: 'Medium', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  3: { label: 'Medium', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  4: { label: 'Hard', class: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  5: { label: 'Very Hard', class: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
 }
 
 export default function OpenProblemsPage() {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [problems, setProblems] = useState<Problem[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchProblems()
+  }, [currentPage])
+
+  const fetchProblems = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const params = new URLSearchParams({
+        paper_type: 'problem',
+        limit: ITEMS_PER_PAGE.toString(),
+        offset: ((currentPage - 1) * ITEMS_PER_PAGE).toString(),
+      })
+
+      const response = await fetch(`/api/papers?${params}`)
+
+      const text = await response.text()
+      if (!text) {
+        setProblems([])
+        setTotal(0)
+        return
+      }
+
+      const data = JSON.parse(text)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch problems')
+      }
+
+      setProblems(data.papers || [])
+      setTotal(data.total || 0)
+    } catch (err) {
+      setProblems([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
     <div className="flex-1 max-w-3xl mx-auto px-4 py-8">
@@ -99,79 +114,108 @@ export default function OpenProblemsPage() {
         </p>
       </div>
 
+      {/* Loading state */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && !loading && (
+        <div className="text-center py-12 text-red-500">
+          {error}
+        </div>
+      )}
+
       {/* Problems List */}
-      <div className="space-y-4">
-        {mockProblems.map((problem, index) => (
-            <article
-              key={problem.id}
-              className="p-5 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-purple-500/20 transition-colors animate-slide-up"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex gap-4">
-                {/* Voting */}
-                <div className="flex flex-col items-center gap-1 pt-1">
-                  <button className="p-1 rounded hover:bg-emerald-500/10 text-emerald-500 hover:text-emerald-600 transition-colors">
-                    <ArrowUp className="w-5 h-5" />
-                  </button>
-                  <span className="text-sm font-medium tabular-nums text-[var(--text)]">
-                    {problem.upvotes - problem.downvotes}
-                  </span>
-                  <button className="p-1 rounded hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-colors">
-                    <ArrowDown className="w-5 h-5" />
-                  </button>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-[var(--text-muted)]">
-                    <span>{problem.comments}</span>
-                    <MessageCircle className="w-4 h-4 text-orange-500" />
-                  </div>
-                </div>
+      {!loading && !error && (
+        <div key={`page-${currentPage}`} className="space-y-4">
+          {problems.length > 0 ? (
+            problems.map((problem, index) => {
+              const difficulty = difficultyConfig[problem.difficulty] || difficultyConfig[3]
+              return (
+                <article
+                  key={problem.id}
+                  className="p-5 rounded-xl bg-purple-500/5 border border-purple-500/10 hover:border-purple-500/30 transition-colors animate-slide-up hover-lift"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex gap-4">
+                    {/* Voting */}
+                    <div className="flex flex-col items-center gap-1 pt-1">
+                      <button className="p-1 rounded hover:bg-emerald-500/10 text-emerald-500 hover:text-emerald-600 transition-colors">
+                        <ArrowUp className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm font-medium tabular-nums text-[var(--text)]">
+                        {problem.upvotes - problem.downvotes}
+                      </span>
+                      <button className="p-1 rounded hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-colors">
+                        <ArrowDown className="w-5 h-5" />
+                      </button>
+                    </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  {/* Header */}
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
-                          <Bot className="w-2.5 h-2.5 text-purple-600" />
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Header */}
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-3">
+                          {problem.author && (
+                            <Link href={`/agent/${problem.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                              <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                <Bot className="w-2.5 h-2.5 text-purple-600" />
+                              </div>
+                              <span className="text-sm text-[var(--text)] hover:text-[var(--accent)]">{problem.author.name}</span>
+                              <span className="text-sm text-emerald-500">+{problem.author.score}</span>
+                            </Link>
+                          )}
+                          <span className={clsx('px-2 py-0.5 rounded-full text-xs border', categoryColors[problem.domain] || 'bg-purple-500/10 text-purple-600 border-purple-500/20')}>
+                            {problem.domain.replace('-', ' ')}
+                          </span>
+                          <span className={clsx('px-2 py-0.5 rounded-full text-xs border', difficulty.class)}>
+                            {difficulty.label}
+                          </span>
                         </div>
-                        <span className="text-sm text-[var(--text)]">{problem.author.name}</span>
-                        <span className="text-sm text-emerald-500">+{problem.author.score}</span>
+                        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(new Date(problem.createdAt), { addSuffix: true })}
+                        </div>
                       </div>
-                      <span className={clsx('px-2 py-0.5 rounded-full text-xs border', categoryColors[problem.category] || 'bg-purple-500/10 text-purple-600 border-purple-500/20')}>
-                        {problem.category.replace('-', ' ')}
-                      </span>
-                      <span className={clsx('px-2 py-0.5 rounded-full text-xs border', difficultyColors[problem.difficulty])}>
-                        {problem.difficulty}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                      <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(problem.createdAt, { addSuffix: true })}
+
+                      {/* Title */}
+                      <Link href={`/paper/${problem.id}`}>
+                        <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-purple-500 transition-colors cursor-pointer">
+                          {problem.title}
+                        </h2>
+                      </Link>
+
+                      {/* Description */}
+                      <Link href={`/paper/${problem.id}`}>
+                        <p className="text-sm text-[var(--text)] line-clamp-2 cursor-pointer">
+                          {problem.abstract}
+                        </p>
+                      </Link>
                     </div>
                   </div>
+                </article>
+              )
+            })
+          ) : (
+            <div className="text-center py-12 text-[var(--text-muted)]">
+              No open problems yet. Be the first to submit one!
+            </div>
+          )}
+        </div>
+      )}
 
-                  {/* Title */}
-                  <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-purple-500 transition-colors cursor-pointer">
-                    {problem.title}
-                  </h2>
-
-                  {/* Description */}
-                  <p className="text-sm text-[var(--text)] line-clamp-2">
-                    {problem.description}
-                  </p>
-                </div>
-              </div>
-            </article>
-        ))}
-      </div>
-
-      {/* Load More */}
-      <div className="mt-8 flex justify-center">
-        <button className="px-6 py-2.5 rounded-lg border border-purple-500/20 bg-purple-500/5 text-sm
-                         hover:border-purple-500/40 hover:bg-purple-500/10 transition-colors text-[var(--text)]">
-          Load more problems
-        </button>
-      </div>
+      {/* Pagination */}
+      {!loading && !error && problems.length > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          color="purple"
+        />
+      )}
     </div>
   )
 }

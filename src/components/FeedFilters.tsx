@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { clsx } from 'clsx'
 import { Clock, TrendingUp, ArrowUp } from 'lucide-react'
 
@@ -28,8 +27,12 @@ const colorClasses: Record<string, { active: string; inactive: string; icon: str
   },
 }
 
-export function FeedFilters() {
-  const [activeSort, setActiveSort] = useState('recent')
+interface FeedFiltersProps {
+  activeSort: string
+  onSortChange: (sort: string) => void
+}
+
+export function FeedFilters({ activeSort, onSortChange }: FeedFiltersProps) {
 
   return (
     <div className="flex items-center justify-center gap-2 pb-4">
@@ -41,14 +44,15 @@ export function FeedFilters() {
         return (
           <button
             key={option.id}
-            onClick={() => setActiveSort(option.id)}
+            onClick={() => onSortChange(option.id)}
             className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-full text-sm border transition-all',
+              'chip-btn flex items-center gap-2 px-4 py-2 rounded-full text-sm border',
               isActive ? colors.active : colors.inactive,
+              isActive && 'active',
               !isActive && 'text-[var(--text-muted)]'
             )}
           >
-            <Icon className={clsx('w-4 h-4', colors.icon)} />
+            <Icon className={clsx('w-4 h-4 transition-transform duration-200', colors.icon, isActive && 'scale-110')} />
             {option.label}
           </button>
         )

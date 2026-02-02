@@ -1,10 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PaperCard } from '@/components/PaperCard'
-import { mockPapers } from '@/lib/mockData'
-import { FileText, Clock, TrendingUp, ArrowUp } from 'lucide-react'
+import { FileText, Clock, TrendingUp, ArrowUp, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { Pagination } from '@/components/Pagination'
+
+const ITEMS_PER_PAGE = 5
+
+type Author = {
+  id: string
+  name: string
+  source: string
+  score: number
+}
+
+type Paper = {
+  id: string
+  title: string
+  abstract: string
+  domain: string
+  paperType: string
+  status: string
+  difficulty: number
+  upvotes: number
+  downvotes: number
+  verificationsReceived: number
+  verificationsRequired: number
+  createdAt: string
+  author: Author | null
+  collaborators?: Author[]
+}
 
 const sortOptions = [
   { id: 'recent', label: 'Most Recent', icon: Clock, color: 'blue' },
@@ -32,9 +58,80 @@ const colorClasses: Record<string, { active: string; inactive: string; icon: str
 
 export default function PublishedPapersPage() {
   const [activeSort, setActiveSort] = useState('recent')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [papers, setPapers] = useState<Paper[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Filter only published papers
-  const publishedPapers = mockPapers.filter(paper => paper.status === 'published')
+  useEffect(() => {
+    fetchPapers()
+  }, [currentPage])
+
+  const fetchPapers = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const params = new URLSearchParams({
+        status: 'published',
+        limit: ITEMS_PER_PAGE.toString(),
+        offset: ((currentPage - 1) * ITEMS_PER_PAGE).toString(),
+      })
+
+      const response = await fetch(`/api/papers?${params}`)
+
+      const text = await response.text()
+      if (!text) {
+        setPapers([])
+        setTotal(0)
+        return
+      }
+
+      const data = JSON.parse(text)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch papers')
+      }
+
+      setPapers(data.papers || [])
+      setTotal(data.total || 0)
+    } catch (err) {
+      setPapers([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Sort papers client-side (API returns by created_at desc)
+  const sortedPapers = [...papers].sort((a, b) => {
+    if (activeSort === 'recent') {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    }
+    if (activeSort === 'trending') {
+      const aScore = (a.upvotes - a.downvotes) + (a.verificationsReceived * 10)
+      const bScore = (b.upvotes - b.downvotes) + (b.verificationsReceived * 10)
+      return bScore - aScore
+    }
+    if (activeSort === 'top') {
+      return (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes)
+    }
+    return 0
+  })
+
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
+
+  const handleSortChange = (sort: string) => {
+    setActiveSort(sort)
+  }
+
+  // Transform API response to match PaperCard expected format
+  const transformPaper = (paper: Paper) => ({
+    ...paper,
+    createdAt: new Date(paper.createdAt),
+    author: paper.author || { id: '', name: 'Unknown', score: 0 },
+  })
 
   return (
     <div className="flex-1 max-w-3xl mx-auto px-4 py-8">
@@ -61,41 +158,58 @@ export default function PublishedPapersPage() {
           return (
             <button
               key={option.id}
-              onClick={() => setActiveSort(option.id)}
+              onClick={() => handleSortChange(option.id)}
               className={clsx(
-                'flex items-center gap-2 px-4 py-2 rounded-full text-sm border transition-all',
+                'chip-btn flex items-center gap-2 px-4 py-2 rounded-full text-sm border',
                 isActive ? colors.active : colors.inactive,
+                isActive && 'active',
                 !isActive && 'text-[var(--text-muted)]'
               )}
             >
-              <Icon className={clsx('w-4 h-4', colors.icon)} />
+              <Icon className={clsx('w-4 h-4 transition-transform duration-200', colors.icon, isActive && 'scale-110')} />
               {option.label}
             </button>
           )
         })}
       </div>
 
-      {/* Papers */}
-      <div className="space-y-4 mt-6">
-        {publishedPapers.length > 0 ? (
-          publishedPapers.map((paper, index) => (
-            <PaperCard key={paper.id} paper={paper} index={index} />
-          ))
-        ) : (
-          <div className="text-center py-12 text-[var(--text-muted)]">
-            No published papers yet.
-          </div>
-        )}
-      </div>
-
-      {/* Load More */}
-      {publishedPapers.length > 0 && (
-        <div className="mt-8 flex justify-center">
-          <button className="px-6 py-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-sm
-                           hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-colors text-[var(--text)]">
-            Load more papers
-          </button>
+      {/* Loading state */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
         </div>
+      )}
+
+      {/* Error state */}
+      {error && !loading && (
+        <div className="text-center py-12 text-red-500">
+          {error}
+        </div>
+      )}
+
+      {/* Papers */}
+      {!loading && !error && (
+        <div key={`page-${currentPage}-${activeSort}`} className="space-y-4 mt-6">
+          {sortedPapers.length > 0 ? (
+            sortedPapers.map((paper, index) => (
+              <PaperCard key={paper.id} paper={transformPaper(paper)} index={index} />
+            ))
+          ) : (
+            <div className="text-center py-12 text-[var(--text-muted)]">
+              No published papers yet.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && !error && sortedPapers.length > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          color="emerald"
+        />
       )}
     </div>
   )

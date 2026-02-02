@@ -1,72 +1,268 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// In-memory store (replace with DB later)
-let papers: any[] = []
-let paperIdCounter = 1
+import { supabase } from '@/lib/supabase'
+import { authenticateAgent, authError } from '@/lib/auth'
+import { createPaperSchema, papersQuerySchema, validateRequest } from '@/lib/validation'
+import { createNotification, POINTS, incrementAgentScore } from '@/lib/scoring'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const status = searchParams.get('status')
-  const domain = searchParams.get('domain')
-  const limit = parseInt(searchParams.get('limit') || '20')
-  const offset = parseInt(searchParams.get('offset') || '0')
 
-  let filtered = [...papers]
+  // Validate query parameters
+  const validation = validateRequest(papersQuerySchema, {
+    status: searchParams.get('status') || undefined,
+    domain: searchParams.get('domain') || undefined,
+    paper_type: searchParams.get('paper_type') || undefined,
+    author_id: searchParams.get('author_id') || undefined,
+    limit: searchParams.get('limit') || undefined,
+    offset: searchParams.get('offset') || undefined,
+  })
+
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: validation.error },
+      { status: 400 }
+    )
+  }
+
+  const { status, domain, paper_type, author_id, limit, offset } = validation.data
+
+  // Build query
+  let query = supabase
+    .from('papers')
+    .select(`
+      id,
+      title,
+      abstract,
+      content,
+      lean_proof,
+      domain,
+      paper_type,
+      status,
+      difficulty,
+      author_id,
+      upvotes,
+      downvotes,
+      verifications_required,
+      verifications_received,
+      reviewers_max,
+      reviewers_claimed,
+      system_check_passed,
+      created_at,
+      updated_at,
+      published_at,
+      author:agents!papers_author_id_fkey (
+        id,
+        name,
+        source,
+        score,
+        papers_published,
+        verifications_count
+      )
+    `, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (status) {
-    filtered = filtered.filter(p => p.status === status)
+    query = query.eq('status', status)
   }
   if (domain) {
-    filtered = filtered.filter(p => p.domain === domain)
+    query = query.eq('domain', domain)
+  }
+  if (paper_type) {
+    query = query.eq('paper_type', paper_type)
+  }
+  if (author_id) {
+    query = query.eq('author_id', author_id)
   }
 
-  const paginated = filtered.slice(offset, offset + limit)
+  const { data: papers, error, count } = await query
+
+  if (error) {
+    console.error('Failed to fetch papers:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch papers' },
+      { status: 500 }
+    )
+  }
+
+  // Transform to camelCase for API response
+  const transformedPapers = (papers || []).map(paper => {
+    // Supabase returns single relations as arrays in TS, but they're actually objects
+    const author = paper.author as unknown as {
+      id: string
+      name: string
+      source: string
+      score: number
+      papers_published: number
+      verifications_count: number
+    } | null
+
+    return {
+      id: paper.id,
+      title: paper.title,
+      abstract: paper.abstract,
+      content: paper.content,
+      leanProof: paper.lean_proof,
+      domain: paper.domain,
+      paperType: paper.paper_type,
+      status: paper.status,
+      difficulty: paper.difficulty,
+      authorId: paper.author_id,
+      author: author ? {
+        id: author.id,
+        name: author.name,
+        source: author.source,
+        score: author.score,
+        papersPublished: author.papers_published,
+        verificationsCount: author.verifications_count,
+      } : null,
+      upvotes: paper.upvotes,
+      downvotes: paper.downvotes,
+      verificationsRequired: paper.verifications_required,
+      verificationsReceived: paper.verifications_received,
+      reviewersMax: paper.reviewers_max,
+      reviewersClaimed: paper.reviewers_claimed,
+      systemCheckPassed: paper.system_check_passed,
+      createdAt: paper.created_at,
+      updatedAt: paper.updated_at,
+      publishedAt: paper.published_at,
+    }
+  })
 
   return NextResponse.json({
-    papers: paginated,
-    total: filtered.length,
+    papers: transformedPapers,
+    total: count || 0,
     limit,
     offset,
   })
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate agent
+  const auth = await authenticateAgent(request)
+  if (auth.error) {
+    return authError(auth.error, auth.status!)
+  }
+
+  const agent = auth.agent!
+
   try {
     const body = await request.json()
 
-    const { title, abstract, content, domain, difficulty, agentId, agentName } = body
-
-    if (!title || !abstract || !content || !domain || !agentId) {
+    // Validate input
+    const validation = validateRequest(createPaperSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, abstract, content, domain, agentId' },
+        { error: validation.error },
         { status: 400 }
       )
     }
 
-    const paper = {
-      id: `paper-${paperIdCounter++}`,
-      title,
-      abstract,
-      content,
-      domain,
-      difficulty: difficulty || 3,
-      status: 'open',
-      authorId: agentId,
-      authorName: agentName || agentId,
-      collaborators: [],
-      upvotes: 0,
-      downvotes: 0,
-      verificationsRequired: 3,
-      verificationsReceived: 0,
-      reviews: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const { title, abstract, content, lean_proof, domain, paper_type, difficulty, collaborator_ids } = validation.data
+
+    // Validate collaborators exist if provided
+    if (collaborator_ids && collaborator_ids.length > 0) {
+      const { data: collaborators, error: collabError } = await supabase
+        .from('agents')
+        .select('id')
+        .in('id', collaborator_ids)
+        .eq('verified', true)
+
+      if (collabError) {
+        console.error('Failed to verify collaborators:', collabError)
+        return NextResponse.json(
+          { error: 'Failed to verify collaborators' },
+          { status: 500 }
+        )
+      }
+
+      if (!collaborators || collaborators.length !== collaborator_ids.length) {
+        return NextResponse.json(
+          { error: 'One or more collaborator IDs are invalid or not verified' },
+          { status: 400 }
+        )
+      }
     }
 
-    papers.push(paper)
+    // Insert paper
+    const { data: paper, error } = await supabase
+      .from('papers')
+      .insert({
+        title,
+        abstract,
+        content,
+        lean_proof: lean_proof || null,
+        domain,
+        paper_type: paper_type || 'paper',
+        difficulty,
+        author_id: agent.id,
+        status: 'open',
+        upvotes: 0,
+        downvotes: 0,
+        verifications_required: 3,
+        verifications_received: 0,
+        reviewers_max: 5,
+        reviewers_claimed: 0,
+        system_check_passed: false,
+      })
+      .select('id, title, abstract, domain, paper_type, status, difficulty, created_at')
+      .single()
 
-    return NextResponse.json({ paper }, { status: 201 })
+    if (error) {
+      console.error('Failed to create paper:', error)
+      return NextResponse.json(
+        { error: 'Failed to create paper' },
+        { status: 500 }
+      )
+    }
+
+    // Add collaborators if provided
+    if (collaborator_ids && collaborator_ids.length > 0) {
+      const collaboratorRecords = collaborator_ids.map(id => ({
+        paper_id: paper.id,
+        agent_id: id,
+      }))
+
+      const { error: collabInsertError } = await supabase
+        .from('paper_collaborators')
+        .insert(collaboratorRecords)
+
+      if (collabInsertError) {
+        console.error('Failed to add collaborators:', collabInsertError)
+        // Paper is created, just log the error
+      }
+
+      // Notify collaborators
+      for (const collabId of collaborator_ids) {
+        await createNotification(
+          collabId,
+          'paper_collaboration',
+          'Added as collaborator',
+          `You have been added as a collaborator on "${paper.title}"`,
+          paper.id
+        )
+      }
+    }
+
+    // Award submission points
+    await incrementAgentScore(agent.id, POINTS.SUBMIT_PAPER)
+
+    return NextResponse.json({
+      paper: {
+        id: paper.id,
+        title: paper.title,
+        abstract: paper.abstract,
+        domain: paper.domain,
+        paperType: paper.paper_type,
+        status: paper.status,
+        difficulty: paper.difficulty,
+        authorId: agent.id,
+        createdAt: paper.created_at,
+      },
+      message: paper_type === 'problem' ? 'Open problem submitted successfully' : 'Paper submitted successfully',
+    }, { status: 201 })
   } catch (error) {
+    console.error('Paper creation error:', error)
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }
