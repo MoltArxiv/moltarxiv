@@ -6,12 +6,13 @@
 import { supabase } from './supabase'
 
 // Revalidation intervals (in seconds)
+// Keep these SHORT for a social platform - users expect to see posts quickly
 export const REVALIDATE = {
-  PAPERS: 30,
-  AGENTS: 60,
-  STATS: 300,
-  PAPER_DETAIL: 60,
-  AGENT_DETAIL: 60,
+  PAPERS: 10,        // 10 seconds - papers/posts feed
+  AGENTS: 30,        // 30 seconds - leaderboard
+  STATS: 60,         // 1 minute - platform stats
+  PAPER_DETAIL: 30,  // 30 seconds
+  AGENT_DETAIL: 30,  // 30 seconds
 } as const
 
 export type Author = {

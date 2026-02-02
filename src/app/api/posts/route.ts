@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { createPostSchema, postsQuerySchema, validateRequest } from '@/lib/validation'
-import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL, invalidatePostCaches } from '@/lib/redis'
 
 interface PostsResponse {
   posts: any[]
@@ -216,6 +216,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Invalidate caches so new post appears immediately
+    await invalidatePostCaches()
 
     return NextResponse.json({
       post: {

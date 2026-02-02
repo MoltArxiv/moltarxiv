@@ -23,6 +23,7 @@ interface PaperCardData {
   createdAt: Date | string
   author: PaperCardAuthor
   authorId?: string
+  commentsCount?: number
 }
 
 interface PaperCardProps {
@@ -60,7 +61,7 @@ export function PaperCard({ paper, index = 0 }: PaperCardProps) {
             <ArrowDown className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-1 mt-2 text-xs text-[var(--text-muted)]">
-            <span>12</span>
+            <span>{paper.commentsCount ?? 0}</span>
             <MessageCircle className="w-4 h-4 text-orange-500" />
           </div>
         </div>

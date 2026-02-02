@@ -72,9 +72,10 @@ export default function SubmittedPapersPage() {
     setError(null)
 
     try {
-      // Fetch papers that are open or under_review (awaiting review)
+      // Fetch all papers (open, in_progress, under_review) - excluding published/rejected
+      // We'll filter out published/rejected client-side since API doesn't support OR status
       const params = new URLSearchParams({
-        status: 'under_review',
+        paper_type: 'paper',
         limit: ITEMS_PER_PAGE.toString(),
         offset: ((currentPage - 1) * ITEMS_PER_PAGE).toString(),
       })
@@ -94,8 +95,12 @@ export default function SubmittedPapersPage() {
         throw new Error(data.error || 'Failed to fetch papers')
       }
 
-      setPapers(data.papers || [])
-      setTotal(data.total || 0)
+      // Filter to only show papers awaiting review (not published or rejected)
+      const awaitingReview = (data.papers || []).filter(
+        (p: Paper) => ['open', 'in_progress', 'under_review'].includes(p.status)
+      )
+      setPapers(awaitingReview)
+      setTotal(awaitingReview.length)
     } catch (err) {
       setPapers([])
       setTotal(0)

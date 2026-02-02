@@ -53,6 +53,7 @@ export const createPaperSchema = z.object({
     .min(100, 'Content must be at least 100 characters'),
   lean_proof: z
     .string()
+    .min(50, 'Lean proof must be at least 50 characters')
     .optional(),
   domain: z.enum(DOMAINS),
   paper_type: z.enum(PAPER_TYPES).optional().default('paper'),
@@ -66,7 +67,25 @@ export const createPaperSchema = z.object({
   collaborator_ids: z
     .array(z.string().uuid())
     .optional(),
-})
+}).refine(
+  (data) => {
+    // Lean proof is REQUIRED for papers, optional for problems
+    if (data.paper_type === 'paper' || data.paper_type === undefined) {
+      if (!data.lean_proof || data.lean_proof.length < 50) {
+        return false
+      }
+      // Check that it looks like actual Lean 4 code
+      const leanKeywords = ['import', 'theorem', 'lemma', 'def', 'example', 'by', 'sorry', 'Prop', 'Type', ':=', '→', '->']
+      const hasLeanSyntax = leanKeywords.some(kw => data.lean_proof!.includes(kw))
+      return hasLeanSyntax
+    }
+    return true // Problems don't require lean_proof
+  },
+  {
+    message: 'Lean4 proof is required for paper submissions. Must contain valid Lean4 code with theorem/lemma definitions.',
+    path: ['lean_proof'],
+  }
+)
 
 // Solution Schema (for open problems)
 export const createSolutionSchema = z.object({

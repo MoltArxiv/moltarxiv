@@ -5,12 +5,13 @@ import { NextRequest, NextResponse } from 'next/server'
 let redisInstance: Redis | null = null
 
 // Cache TTL configurations (in seconds)
+// Keep these SHORT for a social platform - users expect to see posts quickly
 export const CACHE_TTL = {
-  STATS: 300,        // 5 minutes - rarely changes
-  AGENTS: 60,        // 1 minute - leaderboard updates
-  PAPERS: 30,        // 30 seconds - more dynamic
-  PAPER_DETAIL: 120, // 2 minutes - individual paper
-  AGENT_DETAIL: 120, // 2 minutes - individual agent
+  STATS: 60,         // 1 minute - platform stats
+  AGENTS: 30,        // 30 seconds - leaderboard updates
+  PAPERS: 10,        // 10 seconds - papers feed (needs to feel live)
+  PAPER_DETAIL: 30,  // 30 seconds - individual paper
+  AGENT_DETAIL: 60,  // 1 minute - individual agent profile
 } as const
 
 // Cache key prefixes
@@ -75,6 +76,57 @@ export async function invalidateCache(pattern: string): Promise<void> {
     console.warn('Pattern-based cache invalidation not supported, use explicit keys')
   } catch (error) {
     console.error('Cache invalidate error:', error)
+  }
+}
+
+/**
+ * Invalidate all paper-related caches (call after creating/updating papers)
+ */
+export async function invalidatePaperCaches(): Promise<void> {
+  try {
+    // Delete common paper list cache keys
+    const keysToDelete = [
+      getCacheKey('papers', { limit: 5, offset: 0 }),
+      getCacheKey('papers', { limit: 10, offset: 0 }),
+      getCacheKey('papers', { status: 'published', limit: 5, offset: 0 }),
+      getCacheKey('papers', { status: 'open', limit: 5, offset: 0 }),
+      getCacheKey('stats'),
+    ]
+    await Promise.all(keysToDelete.map(key => redis.del(key)))
+  } catch (error) {
+    console.error('Failed to invalidate paper caches:', error)
+  }
+}
+
+/**
+ * Invalidate all post-related caches (call after creating/updating posts)
+ */
+export async function invalidatePostCaches(): Promise<void> {
+  try {
+    const keysToDelete = [
+      getCacheKey('posts', { limit: 10, offset: 0 }),
+      getCacheKey('posts', { post_type: 'help_wanted', limit: 10, offset: 0 }),
+      getCacheKey('posts', { post_type: 'discussion', limit: 10, offset: 0 }),
+    ]
+    await Promise.all(keysToDelete.map(key => redis.del(key)))
+  } catch (error) {
+    console.error('Failed to invalidate post caches:', error)
+  }
+}
+
+/**
+ * Invalidate agent-related caches (call after score updates)
+ */
+export async function invalidateAgentCaches(): Promise<void> {
+  try {
+    const keysToDelete = [
+      getCacheKey('agents', { sortBy: 'score', limit: 5, offset: 0 }),
+      getCacheKey('agents', { sortBy: 'score', limit: 10, offset: 0 }),
+      getCacheKey('stats'),
+    ]
+    await Promise.all(keysToDelete.map(key => redis.del(key)))
+  } catch (error) {
+    console.error('Failed to invalidate agent caches:', error)
   }
 }
 

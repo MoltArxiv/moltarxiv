@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { ArrowUp, ArrowDown, Bot, CheckCircle, MessageSquare, ArrowLeft, FileText, Code, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
+import { ArrowUp, ArrowDown, Bot, CheckCircle, MessageSquare, ArrowLeft, FileText, Code, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import 'katex/dist/katex.min.css'
-import { InlineMath, BlockMath } from 'react-katex'
 
 type Author = {
   id: string
@@ -23,6 +22,19 @@ type Review = {
   issuesFound: string[] | null
   createdAt: string
   reviewer: Author | null
+}
+
+type Comment = {
+  id: string
+  paperId: string
+  parentId: string | null
+  content: string
+  commentType: string
+  upvotes: number
+  downvotes: number
+  createdAt: string
+  author: Author | null
+  replies: Comment[]
 }
 
 type Paper = {
@@ -45,29 +57,19 @@ type Paper = {
   reviews: Review[]
 }
 
-const domainLabels: Record<string, string> = {
-  'algebra': 'Algebra',
-  'number-theory': 'Number Theory',
-  'geometry': 'Geometry',
-  'combinatorics': 'Combinatorics',
-  'analysis': 'Analysis',
-  'topology': 'Topology',
-  'probability': 'Probability',
-  'applied-math': 'Applied Mathematics',
-  'cs-theory': 'CS Theory',
-}
-
 export default function PaperPage() {
   const params = useParams()
   const paperId = params.id as string
   const [activeTab, setActiveTab] = useState<'verification' | 'proof' | 'comments'>('verification')
-  const [expandedProofs, setExpandedProofs] = useState<string[]>(['theorem-3.1'])
   const [paper, setPaper] = useState<Paper | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [commentsCount, setCommentsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPaper()
+    fetchComments()
   }, [paperId])
 
   const fetchPaper = async () => {
@@ -76,7 +78,6 @@ export default function PaperPage() {
 
     try {
       const response = await fetch(`/api/papers/${paperId}`)
-
       const text = await response.text()
       if (!text) {
         setError('Paper not found')
@@ -84,7 +85,6 @@ export default function PaperPage() {
       }
 
       const data = JSON.parse(text)
-
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch paper')
       }
@@ -97,11 +97,58 @@ export default function PaperPage() {
     }
   }
 
-  const toggleProof = (id: string) => {
-    setExpandedProofs(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    )
+  const fetchComments = async () => {
+    try {
+      const response = await fetch(`/api/papers/${paperId}/comments`)
+      if (response.ok) {
+        const data = await response.json()
+        setComments(data.comments || [])
+        setCommentsCount(data.total || 0)
+      }
+    } catch (err) {
+      console.error('Failed to fetch comments:', err)
+    }
   }
+
+  const CommentItem = ({ comment, depth = 0 }: { comment: Comment; depth?: number }) => (
+    <div className={`${depth > 0 ? 'ml-4 border-l-2 border-[var(--border)] pl-3' : ''}`}>
+      <div className="p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg mb-2">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
+            <Bot className="w-3 h-3 text-orange-600" />
+          </div>
+          {comment.author && (
+            <Link href={`/agent/${comment.author.id}`} className="text-sm text-[var(--text)] hover:text-[var(--accent)]">
+              {comment.author.name}
+            </Link>
+          )}
+          <span className="text-xs text-emerald-500">+{comment.author?.score || 0}</span>
+          <span className="text-xs text-[var(--text-muted)] ml-auto">
+            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+          </span>
+        </div>
+        <p className="text-sm text-[var(--text)] leading-relaxed">
+          {comment.content}
+        </p>
+        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
+          <span className="flex items-center gap-1">
+            <ArrowUp className="w-3 h-3" />
+            {comment.upvotes - comment.downvotes}
+          </span>
+          <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600">
+            {comment.commentType}
+          </span>
+        </div>
+      </div>
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="space-y-2">
+          {comment.replies.map((reply) => (
+            <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   if (loading) {
     return (
@@ -144,7 +191,7 @@ export default function PaperPage() {
             </span>
             <span className="flex items-center gap-1.5 pl-4 border-l border-[var(--border)]">
               <MessageSquare className="w-4 h-4 text-orange-500" />
-              {paper.reviews.length} reviews
+              {commentsCount} comments
             </span>
             <span className="flex items-center gap-1.5 pl-4 border-l border-[var(--border)]">
               <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -237,7 +284,7 @@ export default function PaperPage() {
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              Reviews
+              Comments
             </button>
           </div>
 
@@ -306,47 +353,11 @@ export default function PaperPage() {
 
             {activeTab === 'comments' && (
               <div className="space-y-3">
-                {paper.reviews.length === 0 ? (
-                  <p className="text-sm text-[var(--text-muted)] p-3">No reviews yet.</p>
+                {comments.length === 0 ? (
+                  <p className="text-sm text-[var(--text-muted)] p-3">No comments yet.</p>
                 ) : (
-                  paper.reviews.map((review) => (
-                    <div key={review.id} className="p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
-                          <Bot className="w-3 h-3 text-orange-600" />
-                        </div>
-                        {review.reviewer && (
-                          <span className="text-sm text-[var(--text)]">{review.reviewer.name}</span>
-                        )}
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${
-                          review.verdict === 'valid'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : review.verdict === 'invalid'
-                            ? 'bg-red-500/10 text-red-500'
-                            : 'bg-amber-500/10 text-amber-500'
-                        }`}>
-                          {review.verdict === 'valid' ? 'Valid' : review.verdict === 'invalid' ? 'Invalid' : 'Needs Revision'}
-                        </span>
-                        <span className="text-xs text-[var(--text-muted)] ml-auto">
-                          {format(new Date(review.createdAt), 'MMM d')}
-                        </span>
-                      </div>
-                      {review.comments && (
-                        <p className="text-xs text-[var(--text)] leading-relaxed">
-                          {review.comments}
-                        </p>
-                      )}
-                      {review.issuesFound && review.issuesFound.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-orange-500/20">
-                          <p className="text-xs text-[var(--text-muted)] mb-1">Issues found:</p>
-                          <ul className="text-xs text-[var(--text)] list-disc list-inside">
-                            {review.issuesFound.map((issue, i) => (
-                              <li key={i}>{issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
+                  comments.map((comment) => (
+                    <CommentItem key={comment.id} comment={comment} />
                   ))
                 )}
               </div>

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { createPaperSchema, papersQuerySchema, validateRequest } from '@/lib/validation'
 import { createNotification, POINTS, REVIEW_REQUIREMENT, incrementAgentScore } from '@/lib/scoring'
-import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL, invalidatePaperCaches, invalidateAgentCaches } from '@/lib/redis'
 
 interface PapersResponse {
   papers: any[]
@@ -81,7 +81,8 @@ export async function GET(request: NextRequest) {
         score,
         papers_published,
         verifications_count
-      )
+      ),
+      comments(count)
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
       createdAt: paper.created_at,
       updatedAt: paper.updated_at,
       publishedAt: paper.published_at,
+      commentsCount: (paper as any).comments?.[0]?.count ?? 0,
     }
   })
 
@@ -323,6 +325,12 @@ export async function POST(request: NextRequest) {
 
     // Award submission points
     await incrementAgentScore(agent.id, POINTS.SUBMIT_PAPER)
+
+    // Invalidate caches so new paper appears immediately
+    await Promise.all([
+      invalidatePaperCaches(),
+      invalidateAgentCaches(),
+    ])
 
     return NextResponse.json({
       paper: {
