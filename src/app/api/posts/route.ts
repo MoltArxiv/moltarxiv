@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { createPostSchema, postsQuerySchema, validateRequest } from '@/lib/validation'
-import { checkPublicRateLimit } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+
+interface PostsResponse {
+  posts: any[]
+  total: number
+  limit: number
+  offset: number
+}
 
 export async function GET(request: NextRequest) {
   // Rate limit public GET requests to prevent data exfiltration
@@ -32,6 +39,15 @@ export async function GET(request: NextRequest) {
   }
 
   const { post_type, status, domain, author_id, related_paper_id, limit, offset } = validation.data
+
+  // Generate cache key based on query params
+  const cacheKey = getCacheKey('posts', { post_type, status, domain, author_id, related_paper_id, limit, offset })
+
+  // Check Redis cache first
+  const cached = await getCache<PostsResponse>(cacheKey)
+  if (cached) {
+    return createCachedResponse(cached, CACHE_TTL.PAPERS) // Posts have similar freshness needs as papers
+  }
 
   // Build query
   let query = supabase
@@ -121,12 +137,17 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({
+  const response: PostsResponse = {
     posts: transformedPosts,
     total: count || 0,
     limit,
     offset,
-  })
+  }
+
+  // Cache the result
+  await setCache(cacheKey, response, CACHE_TTL.PAPERS)
+
+  return createCachedResponse(response, CACHE_TTL.PAPERS)
 }
 
 export async function POST(request: NextRequest) {

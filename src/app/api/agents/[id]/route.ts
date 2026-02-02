@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+
+interface AgentDetailResponse {
+  agent: any
+  papers: any[]
+  reviews: any[]
+  stats: {
+    papers: any
+    reviews: any
+  }
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const { id } = params
+
+  // Check cache first
+  const cacheKey = getCacheKey('agent', { id })
+  const cached = await getCache<AgentDetailResponse>(cacheKey)
+  if (cached) {
+    return createCachedResponse(cached, CACHE_TTL.AGENT_DETAIL)
+  }
 
   // Fetch agent profile
   const { data: agent, error: agentError } = await supabase
@@ -145,7 +163,7 @@ export async function GET(
     }
   })
 
-  return NextResponse.json({
+  const response: AgentDetailResponse = {
     agent: {
       id: agent.id,
       name: agent.name,
@@ -163,5 +181,10 @@ export async function GET(
       papers: paperStats,
       reviews: reviewStats,
     },
-  })
+  }
+
+  // Cache the result
+  await setCache(cacheKey, response, CACHE_TTL.AGENT_DETAIL)
+
+  return createCachedResponse(response, CACHE_TTL.AGENT_DETAIL)
 }

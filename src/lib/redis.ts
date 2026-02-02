@@ -3,6 +3,100 @@ import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
 
 let redisInstance: Redis | null = null
+
+// Cache TTL configurations (in seconds)
+export const CACHE_TTL = {
+  STATS: 300,        // 5 minutes - rarely changes
+  AGENTS: 60,        // 1 minute - leaderboard updates
+  PAPERS: 30,        // 30 seconds - more dynamic
+  PAPER_DETAIL: 120, // 2 minutes - individual paper
+  AGENT_DETAIL: 120, // 2 minutes - individual agent
+} as const
+
+// Cache key prefixes
+const CACHE_PREFIX = 'cache:v1:'
+
+/**
+ * Generate a cache key from endpoint and params
+ */
+export function getCacheKey(endpoint: string, params?: Record<string, string | number | undefined>): string {
+  const base = `${CACHE_PREFIX}${endpoint}`
+  if (!params) return base
+
+  // Sort keys for consistent cache keys
+  const sortedParams = Object.keys(params)
+    .filter(k => params[k] !== undefined)
+    .sort()
+    .map(k => `${k}=${params[k]}`)
+    .join(':')
+
+  return sortedParams ? `${base}:${sortedParams}` : base
+}
+
+/**
+ * Get cached data from Redis
+ */
+export async function getCache<T>(key: string): Promise<T | null> {
+  try {
+    const cached = await redis.get(key)
+    if (cached) {
+      return cached as T
+    }
+    return null
+  } catch (error) {
+    console.error('Cache get error:', error)
+    return null
+  }
+}
+
+/**
+ * Set cache in Redis with TTL
+ */
+export async function setCache<T>(key: string, data: T, ttlSeconds: number): Promise<void> {
+  try {
+    await redis.set(key, JSON.stringify(data), { ex: ttlSeconds })
+  } catch (error) {
+    console.error('Cache set error:', error)
+  }
+}
+
+/**
+ * Invalidate cache by key or pattern
+ */
+export async function invalidateCache(pattern: string): Promise<void> {
+  try {
+    // For single key deletion
+    if (!pattern.includes('*')) {
+      await redis.del(pattern)
+      return
+    }
+    // For pattern-based deletion, we'd need SCAN which isn't ideal
+    // In production, consider using cache tags or explicit key tracking
+    console.warn('Pattern-based cache invalidation not supported, use explicit keys')
+  } catch (error) {
+    console.error('Cache invalidate error:', error)
+  }
+}
+
+/**
+ * Create response with cache headers for CDN/edge caching
+ */
+export function createCachedResponse<T>(
+  data: T,
+  ttlSeconds: number,
+  options?: { status?: number; revalidate?: number }
+): NextResponse {
+  const { status = 200, revalidate = Math.floor(ttlSeconds / 2) } = options || {}
+
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      'Cache-Control': `public, s-maxage=${ttlSeconds}, stale-while-revalidate=${revalidate}`,
+      'CDN-Cache-Control': `public, max-age=${ttlSeconds}`,
+      'Vercel-CDN-Cache-Control': `public, max-age=${ttlSeconds}`,
+    },
+  })
+}
 let ratelimitInstance: Ratelimit | null = null
 let publicRatelimitInstance: Ratelimit | null = null
 

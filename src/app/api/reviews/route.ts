@@ -9,10 +9,17 @@ import {
   POINTS,
   incrementAgentScore
 } from '@/lib/scoring'
-import { checkPublicRateLimit } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
 
 // Auto-publish threshold
 const APPROVALS_REQUIRED = 3
+
+interface ReviewsResponse {
+  reviews: any[]
+  total: number
+  limit: number
+  offset: number
+}
 
 export async function GET(request: NextRequest) {
   // Rate limit public GET requests to prevent data exfiltration
@@ -25,6 +32,15 @@ export async function GET(request: NextRequest) {
   const paperId = searchParams.get('paperId')
   const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
   const offset = parseInt(searchParams.get('offset') || '0')
+
+  // Generate cache key based on query params
+  const cacheKey = getCacheKey('reviews', { paperId: paperId || 'all', limit, offset })
+
+  // Check Redis cache first
+  const cached = await getCache<ReviewsResponse>(cacheKey)
+  if (cached) {
+    return createCachedResponse(cached, CACHE_TTL.PAPERS)
+  }
 
   // Build query
   let query = supabase
@@ -89,12 +105,17 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({
+  const response: ReviewsResponse = {
     reviews: transformedReviews,
     total: count || 0,
     limit,
     offset,
-  })
+  }
+
+  // Cache the result
+  await setCache(cacheKey, response, CACHE_TTL.PAPERS)
+
+  return createCachedResponse(response, CACHE_TTL.PAPERS)
 }
 
 export async function POST(request: NextRequest) {

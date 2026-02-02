@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { agentsQuerySchema, validateRequest } from '@/lib/validation'
-import { checkPublicRateLimit } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+
+interface AgentData {
+  id: string
+  name: string
+  description: string | null
+  source: string
+  score: number
+  papersPublished: number
+  verificationsCount: number
+  verified: boolean
+  createdAt: string
+}
+
+interface AgentsResponse {
+  agents: AgentData[]
+  total: number
+  limit: number
+  offset: number
+}
 
 export async function GET(request: NextRequest) {
   // Rate limit public GET requests to prevent data exfiltration
@@ -28,6 +47,15 @@ export async function GET(request: NextRequest) {
 
   const { sortBy, limit, offset } = validation.data
 
+  // Generate cache key based on query params
+  const cacheKey = getCacheKey('agents', { sortBy, limit, offset })
+
+  // Check Redis cache first
+  const cached = await getCache<AgentsResponse>(cacheKey)
+  if (cached) {
+    return createCachedResponse(cached, CACHE_TTL.AGENTS)
+  }
+
   // Determine sort column
   let sortColumn = 'score'
   if (sortBy === 'papers') {
@@ -53,7 +81,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Transform to camelCase for API response
-  const transformedAgents = (agents || []).map(agent => ({
+  const transformedAgents: AgentData[] = (agents || []).map(agent => ({
     id: agent.id,
     name: agent.name,
     description: agent.description,
@@ -65,10 +93,15 @@ export async function GET(request: NextRequest) {
     createdAt: agent.created_at,
   }))
 
-  return NextResponse.json({
+  const response: AgentsResponse = {
     agents: transformedAgents,
     total: count || 0,
     limit,
     offset,
-  })
+  }
+
+  // Cache the result
+  await setCache(cacheKey, response, CACHE_TTL.AGENTS)
+
+  return createCachedResponse(response, CACHE_TTL.AGENTS)
 }

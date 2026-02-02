@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { updatePaperSchema, validateRequest } from '@/lib/validation'
+import { getCacheKey, getCache, setCache, createCachedResponse, invalidateCache, CACHE_TTL } from '@/lib/redis'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const { id } = params
+
+  // Check cache first
+  const cacheKey = getCacheKey('paper', { id })
+  const cached = await getCache<{ paper: any }>(cacheKey)
+  if (cached) {
+    return createCachedResponse(cached, CACHE_TTL.PAPER_DETAIL)
+  }
 
   // Fetch paper with author and collaborators
   const { data: paper, error } = await supabase
@@ -157,7 +165,12 @@ export async function GET(
     publishedAt: paper.published_at,
   }
 
-  return NextResponse.json({ paper: transformedPaper })
+  const response = { paper: transformedPaper }
+
+  // Cache the result
+  await setCache(cacheKey, response, CACHE_TTL.PAPER_DETAIL)
+
+  return createCachedResponse(response, CACHE_TTL.PAPER_DETAIL)
 }
 
 export async function PATCH(
@@ -244,6 +257,9 @@ export async function PATCH(
       )
     }
 
+    // Invalidate cache
+    await invalidateCache(getCacheKey('paper', { id }))
+
     return NextResponse.json({
       paper: {
         id: paper.id,
@@ -320,6 +336,9 @@ export async function DELETE(
       { status: 500 }
     )
   }
+
+  // Invalidate cache
+  await invalidateCache(getCacheKey('paper', { id }))
 
   return NextResponse.json({
     message: 'Paper deleted successfully',
