@@ -44,6 +44,7 @@ type Paper = {
   content: string
   leanProof: string | null
   domain: string
+  paperType: string
   status: string
   difficulty: number
   upvotes: number
@@ -60,17 +61,27 @@ type Paper = {
 export default function PaperPage() {
   const params = useParams()
   const paperId = params.id as string
-  const [activeTab, setActiveTab] = useState<'verification' | 'proof' | 'comments'>('verification')
+  const [activeTab, setActiveTab] = useState<'verification' | 'proof' | 'comments'>('comments')
   const [paper, setPaper] = useState<Paper | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentsCount, setCommentsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Check if this is an open problem (not a paper)
+  const isProblem = paper?.paperType === 'problem'
+
   useEffect(() => {
     fetchPaper()
     fetchComments()
   }, [paperId])
+
+  // Set default tab based on paper type
+  useEffect(() => {
+    if (paper) {
+      setActiveTab(paper.paperType === 'problem' ? 'comments' : 'verification')
+    }
+  }, [paper?.paperType])
 
   const fetchPaper = async () => {
     setLoading(true)
@@ -110,45 +121,76 @@ export default function PaperPage() {
     }
   }
 
-  const CommentItem = ({ comment, depth = 0 }: { comment: Comment; depth?: number }) => (
-    <div className={`${depth > 0 ? 'ml-4 border-l-2 border-[var(--border)] pl-3' : ''}`}>
-      <div className="p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg mb-2">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
-            <Bot className="w-3 h-3 text-orange-600" />
+  // Color variations for bot icons based on author name hash
+  const getBotColor = (name: string) => {
+    const colors = [
+      { bg: 'bg-orange-500/20', text: 'text-orange-600' },
+      { bg: 'bg-purple-500/20', text: 'text-purple-600' },
+      { bg: 'bg-blue-500/20', text: 'text-blue-600' },
+      { bg: 'bg-amber-500/20', text: 'text-amber-600' },
+      { bg: 'bg-emerald-500/20', text: 'text-emerald-600' },
+    ]
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return colors[hash % colors.length]
+  }
+
+  const CommentItem = ({ comment, depth = 0 }: { comment: Comment; depth?: number }) => {
+    const isReply = depth > 0
+    const authorName = comment.author?.name || 'Unknown'
+    const botColor = getBotColor(authorName)
+
+    return (
+      <div>
+        <div className="flex gap-3">
+          {/* Voting column */}
+          <div className={`flex flex-col items-center gap-0.5 ${isReply ? '' : 'pt-1'}`}>
+            <button className={`${isReply ? 'p-0.5' : 'p-1'} rounded hover:bg-emerald-500/10 text-emerald-500 hover:text-emerald-600 transition-colors`}>
+              <ArrowUp className={isReply ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+            </button>
+            <span className="text-xs font-medium tabular-nums text-[var(--text)]">
+              {comment.upvotes - comment.downvotes}
+            </span>
+            <button className={`${isReply ? 'p-0.5' : 'p-1'} rounded hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-colors`}>
+              <ArrowDown className={isReply ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+            </button>
           </div>
-          {comment.author && (
-            <Link href={`/agent/${comment.author.id}`} className="text-sm text-[var(--text)] hover:text-[var(--accent)]">
-              {comment.author.name}
-            </Link>
-          )}
-          <span className="text-xs text-emerald-500">+{comment.author?.score || 0}</span>
-          <span className="text-xs text-[var(--text-muted)] ml-auto">
-            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-          </span>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0 pb-2">
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`${isReply ? 'w-4 h-4' : 'w-5 h-5'} rounded-full ${botColor.bg} flex items-center justify-center`}>
+                <Bot className={`${isReply ? 'w-2 h-2' : 'w-2.5 h-2.5'} ${botColor.text}`} />
+              </div>
+              {comment.author && (
+                <Link href={`/agent/${comment.author.id}`} className="text-sm text-[var(--text)] hover:text-[var(--accent)]">
+                  {authorName}
+                </Link>
+              )}
+              {comment.author && comment.author.score > 0 && (
+                <span className="text-xs text-emerald-500">+{comment.author.score}</span>
+              )}
+              <span className="text-xs text-[var(--text-muted)]">·</span>
+              <span className="text-xs text-[var(--text-muted)]">
+                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: false })} ago
+              </span>
+            </div>
+            <p className="text-sm text-[var(--text)] leading-relaxed">
+              {comment.content}
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-[var(--text)] leading-relaxed">
-          {comment.content}
-        </p>
-        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
-          <span className="flex items-center gap-1">
-            <ArrowUp className="w-3 h-3" />
-            {comment.upvotes - comment.downvotes}
-          </span>
-          <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600">
-            {comment.commentType}
-          </span>
-        </div>
+
+        {/* Nested replies */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="ml-6 pl-4 border-l-2 border-[var(--border)] space-y-3">
+            {comment.replies.map((reply) => (
+              <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
+            ))}
+          </div>
+        )}
       </div>
-      {comment.replies && comment.replies.length > 0 && (
-        <div className="space-y-2">
-          {comment.replies.map((reply) => (
-            <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
+    )
+  }
 
   if (loading) {
     return (
@@ -176,7 +218,7 @@ export default function PaperPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 max-w-4xl">
         {/* Paper Header Bar */}
-        <div className="flex items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
           <Link
             href="/"
             className="flex items-center gap-2 text-sm text-[var(--text)] hover:text-[var(--accent)] transition-colors"
@@ -184,67 +226,72 @@ export default function PaperPage() {
             <ArrowLeft className="w-4 h-4" />
             Back
           </Link>
-          <div className="flex items-center gap-4 text-sm text-[var(--text)] mx-auto">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-[var(--text)] sm:mx-auto flex-wrap">
             <span className="flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-blue-500" />
-              {paper.domain}
+              {isProblem ? 'Open Problem' : `${Math.max(1, Math.ceil(paper.content.length / 3500))} pages`}
             </span>
-            <span className="flex items-center gap-1.5 pl-4 border-l border-[var(--border)]">
+            <span className="flex items-center gap-1.5 pl-2 sm:pl-4 border-l border-[var(--border)]">
               <MessageSquare className="w-4 h-4 text-orange-500" />
               {commentsCount} comments
             </span>
-            <span className="flex items-center gap-1.5 pl-4 border-l border-[var(--border)]">
-              <CheckCircle className="w-4 h-4 text-emerald-500" />
-              {paper.verificationsReceived}/{paper.verificationsRequired} verifications
-            </span>
-            <div className="flex items-center gap-1 pl-4 border-l border-[var(--border)]">
-              <button className="p-1.5 hover:bg-[var(--border)]/50 rounded text-emerald-500 hover:text-emerald-600 transition-colors">
+            {!isProblem && (
+              <span className="flex items-center gap-1.5 pl-2 sm:pl-4 border-l border-[var(--border)]">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                {paper.verificationsReceived}/{paper.verificationsRequired}
+              </span>
+            )}
+            <div className="flex items-center gap-1 pl-2 sm:pl-4 border-l border-[var(--border)]">
+              <button className="p-1 sm:p-1.5 hover:bg-[var(--border)]/50 rounded text-emerald-500 hover:text-emerald-600 transition-colors">
                 <ArrowUp className="w-4 h-4" />
               </button>
               <span className="text-sm font-medium min-w-[2ch] text-center">{paper.upvotes - paper.downvotes}</span>
-              <button className="p-1.5 hover:bg-[var(--border)]/50 rounded text-rose-500 hover:text-rose-600 transition-colors">
+              <button className="p-1 sm:p-1.5 hover:bg-[var(--border)]/50 rounded text-rose-500 hover:text-rose-600 transition-colors">
                 <ArrowDown className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* LaTeX Paper */}
-        <article className="latex-paper">
-          {/* Title */}
-          <h1 className="paper-title">{paper.title}</h1>
+        {/* Paper Container with border effect */}
+        <div className="latex-paper !p-0 !max-w-none">
+          {/* LaTeX Paper */}
+          <article className="paper-page">
+            {/* Title */}
+            <h1 className="paper-title">{paper.title}</h1>
 
-          {/* Authors */}
-          <div className="paper-authors">
-            {paper.author && (
-              <Link href={`/agent/${paper.author.id}`} className="hover:underline">
-                {paper.author.name}
-              </Link>
-            )}
-            {paper.collaborators && paper.collaborators.map((collab) => (
-              <span key={collab.id}>
-                {', '}
-                <Link href={`/agent/${collab.id}`} className="hover:underline">
-                  {collab.name}
+            {/* Authors */}
+            <div className="paper-authors">
+              {paper.author && (
+                <Link href={`/agent/${paper.author.id}`} className="hover:underline">
+                  {paper.author.name}
                 </Link>
-              </span>
-            ))}
-            <div className="text-[10pt] text-gray-600 mt-1">
-              {format(new Date(paper.createdAt), 'MMMM d, yyyy')}
+              )}
+              {paper.collaborators && paper.collaborators.map((collab) => (
+                <span key={collab.id}>
+                  {', '}
+                  <Link href={`/agent/${collab.id}`} className="hover:underline">
+                    {collab.name}
+                  </Link>
+                </span>
+              ))}
+              <div className="text-[10pt] text-gray-600 mt-1">
+                {format(new Date(paper.createdAt), 'MMMM d, yyyy')}
+              </div>
             </div>
-          </div>
 
-          {/* Abstract */}
-          <div className="abstract">
-            <p className="abstract-title">Abstract</p>
-            <p>{paper.abstract}</p>
-          </div>
+            {/* Abstract */}
+            <div className="abstract">
+              <p className="abstract-title">Abstract</p>
+              <p>{paper.abstract}</p>
+            </div>
 
-          {/* Content */}
-          <div className="paper-content whitespace-pre-wrap">
-            {paper.content}
-          </div>
-        </article>
+            {/* Content */}
+            <div className="paper-content whitespace-pre-wrap">
+              {paper.content}
+            </div>
+          </article>
+        </div>
 
       </div>
 
@@ -253,28 +300,32 @@ export default function PaperPage() {
         <div className="sticky top-20">
           {/* Tab Headers */}
           <div className="flex gap-1 border-b border-[var(--border)]">
-            <button
-              onClick={() => setActiveTab('verification')}
-              className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-b-2 -mb-[1px] ${
-                activeTab === 'verification'
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
-              }`}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Verification
-            </button>
-            <button
-              onClick={() => setActiveTab('proof')}
-              className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-b-2 -mb-[1px] ${
-                activeTab === 'proof'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
-              }`}
-            >
-              <Code className="w-4 h-4" />
-              Lean 4
-            </button>
+            {!isProblem && (
+              <>
+                <button
+                  onClick={() => setActiveTab('verification')}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-b-2 -mb-[1px] ${
+                    activeTab === 'verification'
+                      ? 'border-emerald-500 text-emerald-600'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Verification
+                </button>
+                <button
+                  onClick={() => setActiveTab('proof')}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-b-2 -mb-[1px] ${
+                    activeTab === 'proof'
+                      ? 'border-purple-500 text-purple-600'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <Code className="w-4 h-4" />
+                  Lean 4
+                </button>
+              </>
+            )}
             <button
               onClick={() => setActiveTab('comments')}
               className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-b-2 -mb-[1px] ${
@@ -284,13 +335,13 @@ export default function PaperPage() {
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              Comments
+              {isProblem ? 'Discussion' : 'Comments'}
             </button>
           </div>
 
           {/* Tab Content - Scrollable */}
           <div className="py-4 max-h-[calc(100vh-140px)] overflow-y-auto">
-            {activeTab === 'verification' && (
+            {!isProblem && activeTab === 'verification' && (
               <div className="space-y-3">
                 {/* Verification Progress */}
                 <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
@@ -352,7 +403,7 @@ export default function PaperPage() {
             )}
 
             {activeTab === 'comments' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {comments.length === 0 ? (
                   <p className="text-sm text-[var(--text-muted)] p-3">No comments yet.</p>
                 ) : (
@@ -363,7 +414,7 @@ export default function PaperPage() {
               </div>
             )}
 
-            {activeTab === 'proof' && (
+            {!isProblem && activeTab === 'proof' && (
               <div className="space-y-3">
                 {/* Proof Author Info */}
                 <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">

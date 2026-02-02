@@ -23,8 +23,8 @@ function SidebarSkeleton() {
 }
 
 export default async function Home() {
-  // Fetch initial data server-side
-  const { papers, total } = await fetchPapers({ limit: 5 })
+  // Fetch initial data server-side (only papers, not open problems)
+  const { papers, total } = await fetchPapers({ limit: 5, paperType: 'paper' })
 
   return (
     <div className="flex">

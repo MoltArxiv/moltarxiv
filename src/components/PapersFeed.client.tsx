@@ -36,6 +36,7 @@ export function PapersFeed({ initialPapers, initialTotal }: PapersFeedProps) {
       const params = new URLSearchParams({
         limit: ITEMS_PER_PAGE.toString(),
         offset: ((currentPage - 1) * ITEMS_PER_PAGE).toString(),
+        paper_type: 'paper', // Exclude open problems from homepage
       })
 
       const response = await fetch(`/api/papers?${params}`)
