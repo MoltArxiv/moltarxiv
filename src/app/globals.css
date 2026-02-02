@@ -1,0 +1,606 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+/* Computer Modern - the actual LaTeX font */
+@import url('https://fonts.cdnfonts.com/css/latin-modern-roman');
+@import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fafafa;
+  --surface: #ffffff;
+  --border: #e0e0e0;
+  --text: #000000;
+  --text-muted: #525252;
+  --accent: #4f46e5;
+}
+
+.dark {
+  --background: #0a0a0b;
+  --surface: #141416;
+  --border: #27272a;
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --accent: #818cf8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: 'Satoshi', system-ui, sans-serif;
+}
+
+/* Subtle grain texture overlay */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 9999;
+}
+
+/* Smooth gradient background */
+.gradient-bg {
+  background: linear-gradient(
+    135deg,
+    var(--background) 0%,
+    color-mix(in srgb, var(--accent) 3%, var(--background)) 50%,
+    var(--background) 100%
+  );
+}
+
+/* Card hover effect */
+.paper-card {
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.paper-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.1);
+}
+
+.dark .paper-card:hover {
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.4);
+}
+
+/* Status badges */
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-open {
+  @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+}
+
+.badge-review {
+  @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+}
+
+.badge-published {
+  @apply bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400;
+}
+
+.badge-rejected {
+  @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* LaTeX-style paper formatting - Academic Paper Look */
+.latex-paper {
+  font-family: 'Latin Modern Roman', 'Computer Modern', 'STIX Two Text', 'Times New Roman', serif;
+  font-size: 11pt;
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+  color: #000000;
+  background: #ffffff;
+  max-width: 816px;
+  margin: 0 auto;
+  padding: 72px 72px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  letter-spacing: -0.01em;
+  word-spacing: 0.02em;
+}
+
+.dark .latex-paper {
+  background: #fefefe;
+  color: #000000;
+}
+
+/* Paper Title */
+.latex-paper .paper-title {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 17pt;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 20px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+/* Authors */
+.latex-paper .paper-authors {
+  text-align: center;
+  font-size: 12pt;
+  margin-bottom: 24px;
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+.latex-paper .paper-authors a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.latex-paper .paper-authors a:hover {
+  text-decoration: underline;
+}
+
+/* Abstract */
+.latex-paper .abstract {
+  margin: 24px 48px 28px;
+  font-size: 10pt;
+  line-height: 1.3;
+}
+
+.latex-paper .abstract-title {
+  font-weight: 700;
+  font-size: 11pt;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.latex-paper .abstract p {
+  text-indent: 0;
+  margin-bottom: 0;
+}
+
+/* Section Headings */
+.latex-paper h2 {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 12pt;
+  font-weight: 700;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.latex-paper h3 {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 11pt;
+  font-weight: 700;
+  font-style: italic;
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+/* Paragraphs */
+.latex-paper p {
+  margin-bottom: 0;
+  text-indent: 1.5em;
+}
+
+.latex-paper p + p {
+  margin-top: 0;
+}
+
+.latex-paper .no-indent,
+.latex-paper h2 + p,
+.latex-paper h3 + p,
+.latex-paper .theorem + p,
+.latex-paper .lemma + p,
+.latex-paper .definition + p,
+.latex-paper .proof + p {
+  text-indent: 0;
+}
+
+/* Theorem-like environments */
+.latex-paper .theorem,
+.latex-paper .lemma,
+.latex-paper .definition,
+.latex-paper .corollary,
+.latex-paper .proposition,
+.latex-paper .remark {
+  margin: 12px 0;
+}
+
+.latex-paper .theorem-head,
+.latex-paper .lemma-head,
+.latex-paper .corollary-head,
+.latex-paper .proposition-head {
+  font-weight: 700;
+  font-style: normal;
+  margin-right: 0.3em;
+}
+
+.latex-paper .theorem-body,
+.latex-paper .lemma-body,
+.latex-paper .corollary-body,
+.latex-paper .proposition-body {
+  font-style: italic;
+}
+
+.latex-paper .definition-head,
+.latex-paper .remark-head {
+  font-weight: 700;
+  font-style: normal;
+  margin-right: 0.3em;
+}
+
+.latex-paper .definition-body,
+.latex-paper .remark-body {
+  font-style: normal;
+}
+
+/* Proof environment */
+.latex-paper .proof {
+  margin: 12px 0;
+}
+
+.latex-paper .proof-head {
+  font-style: italic;
+  font-weight: 400;
+  margin-right: 0.3em;
+}
+
+.latex-paper .proof-body {
+  font-style: normal;
+}
+
+.latex-paper .qed {
+  float: right;
+  font-size: 10pt;
+  line-height: 1;
+}
+
+/* Math styling */
+.latex-paper .katex-display {
+  margin: 16px 0;
+}
+
+.latex-paper .katex {
+  font-size: 1em;
+}
+
+/* Equation numbering */
+.latex-paper .equation {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.latex-paper .equation-content {
+  flex: 1;
+  text-align: center;
+}
+
+.latex-paper .equation-number {
+  font-size: 10pt;
+  color: #333;
+}
+
+/* Lists */
+.latex-paper ul,
+.latex-paper ol {
+  margin: 10px 0;
+  padding-left: 2em;
+}
+
+.latex-paper li {
+  margin-bottom: 3px;
+}
+
+/* References */
+.latex-paper .references {
+  font-size: 10pt;
+  margin-top: 28px;
+}
+
+.latex-paper .references h2 {
+  font-size: 12pt;
+  margin-bottom: 10px;
+}
+
+.latex-paper .references ol {
+  list-style-type: none;
+  padding-left: 2em;
+  counter-reset: ref-counter;
+  margin-top: 8px;
+}
+
+.latex-paper .references li {
+  margin-bottom: 4px;
+  text-indent: -2em;
+  padding-left: 0;
+  counter-increment: ref-counter;
+  line-height: 1.3;
+}
+
+.latex-paper .references li::before {
+  content: "[" counter(ref-counter) "] ";
+  font-weight: 400;
+}
+
+/* Footnotes */
+.latex-paper .footnote {
+  font-size: 9pt;
+  vertical-align: super;
+}
+
+/* Figure/Table captions */
+.latex-paper .caption {
+  font-size: 10pt;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.latex-paper .caption-label {
+  font-weight: 700;
+}
+
+/* Horizontal rule for paper sections */
+.latex-paper hr {
+  border: none;
+  border-top: 0.5px solid #ccc;
+  margin: 28px 0;
+}
+
+/* Paper page styling - Authentic LaTeX/arXiv look */
+.paper-page {
+  font-family: 'Latin Modern Roman', 'Computer Modern', 'STIX Two Text', 'Times New Roman', serif;
+  font-size: 11pt;
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+  color: #000000;
+  background: #ffffff;
+  max-width: 816px;
+  min-height: 1056px;
+  margin: 0 auto 16px;
+  padding: 72px 72px 96px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  letter-spacing: -0.01em;
+  word-spacing: 0.02em;
+}
+
+/* LaTeX-style section headings */
+.paper-page h2 {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 12pt;
+  font-weight: 700;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  text-align: left;
+  letter-spacing: 0;
+}
+
+.paper-page h3 {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 11pt;
+  font-weight: 700;
+  font-style: italic;
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+/* Paper title - LaTeX style large bold */
+.paper-page .paper-title {
+  font-family: 'Latin Modern Roman', 'Computer Modern', serif;
+  font-size: 17pt;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 20px;
+  margin-top: 0;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+/* Authors - LaTeX style */
+.paper-page .paper-authors {
+  text-align: center;
+  font-size: 12pt;
+  margin-bottom: 24px;
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+/* Abstract - indented block with smaller font */
+.paper-page .abstract {
+  margin: 24px 48px 28px;
+  font-size: 10pt;
+  line-height: 1.3;
+}
+
+.paper-page .abstract-title {
+  font-weight: 700;
+  font-size: 11pt;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.paper-page .abstract p {
+  text-indent: 0;
+  margin-bottom: 0;
+}
+
+/* Paragraphs - LaTeX standard indentation */
+.paper-page p {
+  margin-bottom: 0;
+  margin-top: 0;
+  text-indent: 1.5em;
+}
+
+.paper-page p + p {
+  margin-top: 0;
+}
+
+.paper-page .no-indent,
+.paper-page h2 + p,
+.paper-page h3 + p,
+.paper-page .theorem + p,
+.paper-page .lemma + p,
+.paper-page .definition + p,
+.paper-page .proof + p,
+.paper-page .abstract p {
+  text-indent: 0;
+}
+
+/* Theorem environments - LaTeX amsthm style */
+.paper-page .theorem,
+.paper-page .lemma,
+.paper-page .definition,
+.paper-page .corollary,
+.paper-page .proposition,
+.paper-page .remark {
+  margin: 12px 0;
+}
+
+.paper-page .theorem-head,
+.paper-page .lemma-head,
+.paper-page .corollary-head,
+.paper-page .proposition-head {
+  font-weight: 700;
+  font-style: normal;
+  margin-right: 0.3em;
+}
+
+.paper-page .theorem-body,
+.paper-page .lemma-body,
+.paper-page .corollary-body,
+.paper-page .proposition-body {
+  font-style: italic;
+}
+
+.paper-page .definition-head,
+.paper-page .remark-head {
+  font-weight: 700;
+  font-style: normal;
+  margin-right: 0.3em;
+}
+
+.paper-page .definition-body,
+.paper-page .remark-body {
+  font-style: normal;
+}
+
+/* Proof environment - LaTeX style */
+.paper-page .proof {
+  margin: 12px 0;
+}
+
+.paper-page .proof-head {
+  font-style: italic;
+  font-weight: 400;
+  margin-right: 0.3em;
+}
+
+.paper-page .proof-body {
+  font-style: normal;
+}
+
+.paper-page .qed {
+  float: right;
+  font-size: 10pt;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+/* References - LaTeX biblatex style */
+.paper-page .references {
+  font-size: 10pt;
+  margin-top: 28px;
+}
+
+.paper-page .references h2 {
+  font-size: 12pt;
+  margin-bottom: 10px;
+}
+
+.paper-page .references ol {
+  list-style-type: none;
+  padding-left: 2em;
+  counter-reset: ref-counter;
+  margin-top: 8px;
+}
+
+.paper-page .references li {
+  margin-bottom: 4px;
+  text-indent: -2em;
+  padding-left: 0;
+  counter-increment: ref-counter;
+  line-height: 1.3;
+}
+
+.paper-page .references li::before {
+  content: "[" counter(ref-counter) "] ";
+  font-weight: 400;
+}
+
+/* Block math - proper LaTeX spacing */
+.paper-page .katex-display {
+  margin: 16px 0;
+}
+
+.paper-page .katex {
+  font-size: 1em;
+}
+
+/* Emphasis and italics */
+.paper-page em {
+  font-style: italic;
+}
+
+.paper-page strong {
+  font-weight: 700;
+}
+
+/* Math within italic text should stay upright */
+.paper-page em .katex,
+.paper-page .theorem-body .katex,
+.paper-page .lemma-body .katex {
+  font-style: normal;
+}
+
+/* Numbered items like 1), 2) in theorems */
+.paper-page .theorem + p.no-indent,
+.paper-page .lemma + p.no-indent {
+  margin-top: 4px;
+}
+
+/* Better spacing for displayed math */
+.paper-page .my-2 {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.paper-page .my-4 {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
