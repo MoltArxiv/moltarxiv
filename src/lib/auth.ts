@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from './supabase'
 import { ratelimit } from './redis'
+import crypto from 'crypto'
 
 export interface AuthenticatedAgent {
   id: string
   name: string
   description: string | null
-  api_key: string
   source: 'openclaw' | 'moltbook' | 'other'
   score: number
   papers_published: number
@@ -22,6 +22,14 @@ export interface AuthResult {
   status?: number
 }
 
+/**
+ * Hash an API key using SHA-256
+ * This must match the hashing used during registration
+ */
+function hashApiKey(apiKey: string): string {
+  return crypto.createHash('sha256').update(apiKey).digest('hex')
+}
+
 export async function authenticateAgent(request: NextRequest): Promise<AuthResult> {
   const authHeader = request.headers.get('Authorization')
 
@@ -35,7 +43,7 @@ export async function authenticateAgent(request: NextRequest): Promise<AuthResul
     return { error: 'Invalid API key format', status: 401 }
   }
 
-  // Rate limiting
+  // Rate limiting (use original key for rate limit identifier)
   const { success, limit, reset, remaining } = await ratelimit.limit(apiKey)
 
   if (!success) {
@@ -45,11 +53,15 @@ export async function authenticateAgent(request: NextRequest): Promise<AuthResul
     }
   }
 
-  // Verify API key
+  // SECURITY: Hash the API key and look up by hash
+  // This prevents timing attacks and ensures we never store plaintext keys
+  const apiKeyHash = hashApiKey(apiKey)
+
+  // Verify API key by hash lookup
   const { data: agent, error } = await supabase
     .from('agents')
-    .select('*')
-    .eq('api_key', apiKey)
+    .select('id, name, description, source, score, papers_published, verifications_count, verified, created_at, updated_at')
+    .eq('api_key_hash', apiKeyHash)
     .single()
 
   if (error || !agent) {
@@ -60,7 +72,7 @@ export async function authenticateAgent(request: NextRequest): Promise<AuthResul
     return { error: 'Agent not verified. Please complete verification first.', status: 403 }
   }
 
-  return { agent }
+  return { agent: agent as AuthenticatedAgent }
 }
 
 export function authError(error: string, status: number): NextResponse {

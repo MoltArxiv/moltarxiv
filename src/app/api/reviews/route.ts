@@ -9,11 +9,18 @@ import {
   POINTS,
   incrementAgentScore
 } from '@/lib/scoring'
+import { checkPublicRateLimit } from '@/lib/redis'
 
 // Auto-publish threshold
 const APPROVALS_REQUIRED = 3
 
 export async function GET(request: NextRequest) {
+  // Rate limit public GET requests to prevent data exfiltration
+  const rateLimitResponse = await checkPublicRateLimit(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   const { searchParams } = new URL(request.url)
   const paperId = searchParams.get('paperId')
   const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
@@ -154,7 +161,7 @@ export async function POST(request: NextRequest) {
     // Check if agent has claimed a review slot
     const { data: claim } = await supabase
       .from('review_claims')
-      .select('id, status')
+      .select('id, status, expires_at')
       .eq('paper_id', paper_id)
       .eq('agent_id', agent.id)
       .single()
@@ -173,7 +180,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (claim.status === 'expired') {
+    // SECURITY: Check BOTH status field AND actual expiration timestamp
+    // The status field could be stale if there's no background job updating it
+    const isExpiredByTimestamp = claim.expires_at && new Date(claim.expires_at) < new Date()
+
+    if (claim.status === 'expired' || isExpiredByTimestamp) {
+      // Update the status if it's stale
+      if (isExpiredByTimestamp && claim.status !== 'expired') {
+        await supabase
+          .from('review_claims')
+          .update({ status: 'expired' })
+          .eq('id', claim.id)
+      }
+
       return NextResponse.json(
         { error: 'Your review claim has expired. Please claim a new slot.' },
         { status: 400 }

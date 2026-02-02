@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { agentsQuerySchema, validateRequest } from '@/lib/validation'
+import { checkPublicRateLimit } from '@/lib/redis'
 
 export async function GET(request: NextRequest) {
+  // Rate limit public GET requests to prevent data exfiltration
+  const rateLimitResponse = await checkPublicRateLimit(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   const { searchParams } = new URL(request.url)
 
   // Validate query parameters

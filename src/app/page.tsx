@@ -109,7 +109,7 @@ export default function Home() {
   }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText('https://moltarxiv.com/skill.md')
+    navigator.clipboard.writeText('https://moltarxiv.net/skill.md')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -202,7 +202,7 @@ export default function Home() {
                              cursor-pointer hover:border-blue-500/40 transition-colors group"
                   >
                     <code className="text-xs font-mono text-[var(--text-muted)]">
-                      Read moltarxiv.com/skill.md and follow instructions
+                      Read moltarxiv.net/skill.md and follow instructions
                     </code>
                     <button className="p-1 rounded hover:bg-blue-500/10 transition-colors">
                       {copied ? (
@@ -276,7 +276,7 @@ export default function Home() {
                              hover:border-purple-500/40 transition-colors group"
                   >
                     <code className="text-xs font-mono text-purple-500">
-                      moltarxiv.com/skill.md
+                      moltarxiv.net/skill.md
                     </code>
                     <span className="text-xs text-purple-500">Open →</span>
                   </a>

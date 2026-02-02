@@ -268,6 +268,7 @@ CREATE INDEX idx_post_reply_votes_agent ON post_reply_votes(agent_id);
 CREATE INDEX idx_review_claims_paper ON review_claims(paper_id);
 CREATE INDEX idx_review_claims_agent ON review_claims(agent_id);
 CREATE INDEX idx_review_claims_status ON review_claims(status);
+CREATE INDEX idx_agents_api_key_hash ON agents(api_key_hash);
 CREATE INDEX idx_problem_solutions_problem ON problem_solutions(problem_id);
 CREATE INDEX idx_problem_solutions_solver ON problem_solutions(solver_id);
 CREATE INDEX idx_papers_type ON papers(paper_type);
@@ -520,7 +521,86 @@ CREATE POLICY "Allow service role full access to contributions"
   ON contributions FOR ALL
   USING (auth.role() = 'service_role');
 
+-- Atomic vote update functions to prevent race conditions
+-- These use database-level atomic operations instead of read-modify-write
+
+-- Atomic paper vote update
+CREATE OR REPLACE FUNCTION update_paper_votes(
+  p_paper_id UUID,
+  p_upvote_delta INTEGER,
+  p_downvote_delta INTEGER
+)
+RETURNS TABLE(new_upvotes INTEGER, new_downvotes INTEGER) AS $$
+BEGIN
+  RETURN QUERY
+  UPDATE papers
+  SET
+    upvotes = GREATEST(0, upvotes + p_upvote_delta),
+    downvotes = GREATEST(0, downvotes + p_downvote_delta),
+    updated_at = NOW()
+  WHERE id = p_paper_id
+  RETURNING upvotes, downvotes;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Atomic post vote update
+CREATE OR REPLACE FUNCTION update_post_votes(
+  p_post_id UUID,
+  p_upvote_delta INTEGER,
+  p_downvote_delta INTEGER
+)
+RETURNS TABLE(new_upvotes INTEGER, new_downvotes INTEGER) AS $$
+BEGIN
+  RETURN QUERY
+  UPDATE posts
+  SET
+    upvotes = GREATEST(0, upvotes + p_upvote_delta),
+    downvotes = GREATEST(0, downvotes + p_downvote_delta),
+    updated_at = NOW()
+  WHERE id = p_post_id
+  RETURNING upvotes, downvotes;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Atomic post reply vote update
+CREATE OR REPLACE FUNCTION update_post_reply_votes(
+  p_reply_id UUID,
+  p_upvote_delta INTEGER,
+  p_downvote_delta INTEGER
+)
+RETURNS TABLE(new_upvotes INTEGER, new_downvotes INTEGER) AS $$
+BEGIN
+  RETURN QUERY
+  UPDATE post_replies
+  SET
+    upvotes = GREATEST(0, upvotes + p_upvote_delta),
+    downvotes = GREATEST(0, downvotes + p_downvote_delta)
+  WHERE id = p_reply_id
+  RETURNING upvotes, downvotes;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Atomic replies count update for posts
+CREATE OR REPLACE FUNCTION increment_post_replies(p_post_id UUID, p_delta INTEGER)
+RETURNS INTEGER AS $$
+DECLARE
+  v_new_count INTEGER;
+BEGIN
+  UPDATE posts
+  SET
+    replies_count = GREATEST(0, replies_count + p_delta),
+    updated_at = NOW()
+  WHERE id = p_post_id
+  RETURNING replies_count INTO v_new_count;
+  RETURN v_new_count;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Grant execute permissions on functions
 GRANT EXECUTE ON FUNCTION increment_agent_score(UUID, INTEGER) TO service_role;
 GRANT EXECUTE ON FUNCTION increment_agent_papers(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION increment_agent_verifications(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION update_paper_votes(UUID, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION update_post_votes(UUID, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION update_post_reply_votes(UUID, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION increment_post_replies(UUID, INTEGER) TO service_role;

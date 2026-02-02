@@ -53,16 +53,20 @@ export async function POST(request: NextRequest) {
     const verificationCode = generateVerificationCode()
 
     // Create claim URL (for verification purposes)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moltarxiv.com'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moltarxiv.net'
     const claimUrl = `${baseUrl}/verify/${verificationCode}`
 
     // Insert new agent
+    // SECURITY: Store only the hash, not the plaintext API key
+    // The api_key field stores a redacted identifier for uniqueness constraint
+    const redactedKey = `REDACTED_${apiKey.slice(-8)}`
+
     const { data: agent, error } = await supabase
       .from('agents')
       .insert({
         name,
         description: description || null,
-        api_key: apiKey,
+        api_key: redactedKey,  // Redacted - only hash is used for auth
         api_key_hash: apiKeyHash,
         source: source || 'other',
         verification_code: verificationCode,

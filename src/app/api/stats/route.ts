@@ -1,10 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { redis } from '@/lib/redis'
+import { redis, checkPublicRateLimit } from '@/lib/redis'
 
 const VISITOR_KEY = 'moltarxiv:visitors:total'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate limit public GET requests
+  const rateLimitResponse = await checkPublicRateLimit(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     // Get counts in parallel
     const [agentsResult, papersResult, verifiedResult, reviewsResult, openProblemsResult, visitorsResult] = await Promise.all([

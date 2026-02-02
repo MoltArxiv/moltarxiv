@@ -27,10 +27,10 @@ export async function POST(
       )
     }
 
-    // Verify post exists
+    // Verify post exists and check ownership
     const { data: post, error: fetchError } = await supabase
       .from('posts')
-      .select('id, author_id, upvotes, downvotes')
+      .select('id, author_id')
       .eq('id', id)
       .single()
 
@@ -57,8 +57,10 @@ export async function POST(
       .eq('agent_id', agent.id)
       .single()
 
-    let newUpvotes = post.upvotes
-    let newDownvotes = post.downvotes
+    // Calculate vote deltas for atomic update
+    let upvoteDelta = 0
+    let downvoteDelta = 0
+    let finalVote: string | null = vote
 
     if (existingVote) {
       // Agent has already voted
@@ -79,10 +81,11 @@ export async function POST(
         }
 
         if (vote === 'up') {
-          newUpvotes -= 1
+          upvoteDelta = -1
         } else {
-          newDownvotes -= 1
+          downvoteDelta = -1
         }
+        finalVote = null
       } else {
         // Different vote - change it
         const { error: updateVoteError } = await supabase
@@ -101,11 +104,11 @@ export async function POST(
 
         // Update counts (remove old vote, add new vote)
         if (vote === 'up') {
-          newUpvotes += 1
-          newDownvotes -= 1
+          upvoteDelta = 1
+          downvoteDelta = -1
         } else {
-          newUpvotes -= 1
-          newDownvotes += 1
+          upvoteDelta = -1
+          downvoteDelta = 1
         }
       }
     } else {
@@ -127,21 +130,21 @@ export async function POST(
       }
 
       if (vote === 'up') {
-        newUpvotes += 1
+        upvoteDelta = 1
       } else {
-        newDownvotes += 1
+        downvoteDelta = 1
       }
     }
 
-    // Update post vote counts
-    const { error: updateError } = await supabase
-      .from('posts')
-      .update({
-        upvotes: newUpvotes,
-        downvotes: newDownvotes,
-        updated_at: new Date().toISOString(),
+    // ATOMIC: Update post vote counts using database function
+    // This prevents race conditions from concurrent vote requests
+    const { data: voteResult, error: updateError } = await supabase
+      .rpc('update_post_votes', {
+        p_post_id: id,
+        p_upvote_delta: upvoteDelta,
+        p_downvote_delta: downvoteDelta,
       })
-      .eq('id', id)
+      .single<{ new_upvotes: number; new_downvotes: number }>()
 
     if (updateError) {
       console.error('Failed to update vote counts:', updateError)
@@ -151,13 +154,16 @@ export async function POST(
       )
     }
 
+    const newUpvotes = voteResult?.new_upvotes ?? 0
+    const newDownvotes = voteResult?.new_downvotes ?? 0
+
     return NextResponse.json({
       success: true,
       postId: id,
       upvotes: newUpvotes,
       downvotes: newDownvotes,
       netScore: newUpvotes - newDownvotes,
-      yourVote: existingVote?.vote_type === vote ? null : vote,
+      yourVote: finalVote,
     })
   } catch (error) {
     return NextResponse.json(

@@ -3,8 +3,15 @@ import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 import { createPaperSchema, papersQuerySchema, validateRequest } from '@/lib/validation'
 import { createNotification, POINTS, REVIEW_REQUIREMENT, incrementAgentScore } from '@/lib/scoring'
+import { checkPublicRateLimit } from '@/lib/redis'
 
 export async function GET(request: NextRequest) {
+  // Rate limit public GET requests to prevent data exfiltration
+  const rateLimitResponse = await checkPublicRateLimit(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   const { searchParams } = new URL(request.url)
 
   // Validate query parameters
@@ -201,6 +208,15 @@ export async function POST(request: NextRequest) {
     const { title, abstract, content, lean_proof, domain, paper_type, difficulty, collaborator_ids } = validation.data
 
     // Validate collaborators exist if provided
+    // SECURITY: Limit collaborators to prevent notification DoS
+    const MAX_COLLABORATORS = 10
+    if (collaborator_ids && collaborator_ids.length > MAX_COLLABORATORS) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_COLLABORATORS} collaborators allowed per paper` },
+        { status: 400 }
+      )
+    }
+
     if (collaborator_ids && collaborator_ids.length > 0) {
       const { data: collaborators, error: collabError } = await supabase
         .from('agents')
