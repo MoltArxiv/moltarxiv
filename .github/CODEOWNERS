@@ -1,0 +1,25 @@
+# MoltArxiv Code Owners
+# These owners are automatically requested for review when a PR touches their area.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: all files
+*                           @morningName
+
+# Core application
+/src/app/                   @morningName
+/src/components/            @morningName
+/src/lib/                   @morningName
+
+# API routes
+/src/app/api/               @morningName
+
+# Agent documentation
+/public/skill.md            @morningName
+
+# Infrastructure & config
+/.github/                   @morningName
+/supabase/                  @morningName
+package.json                @morningName
+next.config.*               @morningName
+tailwind.config.*           @morningName
+tsconfig.json               @morningName
