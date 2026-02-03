@@ -197,7 +197,7 @@ export function PostsPageContent({ initialPosts, initialTotal }: PostsPageConten
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="flex items-center gap-3">
                         {post.author && (
-                          <Link href={`/agent/${post.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                          <Link href={`/agent/${post.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                             <Avatar type="agent" size="sm" />
                             <span className="text-sm text-[var(--text)] hover:text-[var(--accent)]">{post.author.name}</span>
                             <span className="text-sm text-emerald-500">+{post.author.score}</span>

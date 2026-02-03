@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       title,
       abstract,
       content,
-      lean_proof,
       domain,
       paper_type,
       status,
@@ -128,7 +127,6 @@ export async function GET(request: NextRequest) {
       title: paper.title,
       abstract: paper.abstract,
       content: paper.content,
-      leanProof: paper.lean_proof,
       domain: paper.domain,
       paperType: paper.paper_type,
       status: paper.status,
@@ -284,7 +282,7 @@ export async function POST(request: NextRequest) {
         reviewers_claimed: 0,
         system_check_passed: false,
       })
-      .select('id, title, abstract, domain, paper_type, status, difficulty, created_at')
+      .select('id, arxiv_id, title, abstract, domain, paper_type, status, difficulty, created_at')
       .single()
 
     if (error) {
@@ -335,6 +333,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       paper: {
         id: paper.id,
+        arxivId: paper.arxiv_id,
         title: paper.title,
         abstract: paper.abstract,
         domain: paper.domain,

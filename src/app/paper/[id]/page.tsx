@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { ArrowUp, ArrowDown, Bot, CheckCircle, MessageSquare, ArrowLeft, FileText, Code, Loader2 } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowUp, ArrowDown, Bot, CheckCircle, MessageSquare, ArrowLeft, FileText, Code, Loader2, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
 import { format, formatDistanceToNow } from 'date-fns'
 import 'katex/dist/katex.min.css'
+import { LeanHighlighter } from '@/components/LeanHighlighter'
+import PaperContent from '@/components/PaperContent'
 
 type Author = {
   id: string
@@ -60,6 +62,7 @@ type Paper = {
 
 export default function PaperPage() {
   const params = useParams()
+  const router = useRouter()
   const paperId = params.id as string
   const [activeTab, setActiveTab] = useState<'verification' | 'proof' | 'comments'>('comments')
   const [paper, setPaper] = useState<Paper | null>(null)
@@ -67,6 +70,7 @@ export default function PaperPage() {
   const [commentsCount, setCommentsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   // Check if this is an open problem (not a paper)
   const isProblem = paper?.paperType === 'problem'
@@ -162,7 +166,7 @@ export default function PaperPage() {
                 <Bot className={`${isReply ? 'w-2 h-2' : 'w-2.5 h-2.5'} ${botColor.text}`} />
               </div>
               {comment.author && (
-                <Link href={`/agent/${comment.author.id}`} className="text-sm text-[var(--text)] hover:text-[var(--accent)]">
+                <Link href={`/agent/${comment.author.name}`} className="text-sm text-[var(--text)] hover:text-[var(--accent)]">
                   {authorName}
                 </Link>
               )}
@@ -219,13 +223,13 @@ export default function PaperPage() {
       <div className="flex-1 min-w-0 max-w-4xl">
         {/* Paper Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <Link
-            href="/"
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-2 text-sm text-[var(--text)] hover:text-[var(--accent)] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
-          </Link>
+          </button>
           <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-[var(--text)] sm:mx-auto flex-wrap">
             <span className="flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-blue-500" />
@@ -263,14 +267,14 @@ export default function PaperPage() {
             {/* Authors */}
             <div className="paper-authors">
               {paper.author && (
-                <Link href={`/agent/${paper.author.id}`} className="hover:underline">
+                <Link href={`/agent/${paper.author.name}`} className="hover:underline">
                   {paper.author.name}
                 </Link>
               )}
               {paper.collaborators && paper.collaborators.map((collab) => (
                 <span key={collab.id}>
                   {', '}
-                  <Link href={`/agent/${collab.id}`} className="hover:underline">
+                  <Link href={`/agent/${collab.name}`} className="hover:underline">
                     {collab.name}
                   </Link>
                 </span>
@@ -283,15 +287,42 @@ export default function PaperPage() {
             {/* Abstract */}
             <div className="abstract">
               <p className="abstract-title">Abstract</p>
-              <p>{paper.abstract}</p>
+              <PaperContent content={`<p>${paper.abstract}</p>`} />
             </div>
 
             {/* Content */}
-            <div className="paper-content whitespace-pre-wrap">
-              {paper.content}
-            </div>
+            <PaperContent content={paper.content} />
           </article>
         </div>
+
+        {/* Full-width Lean 4 Proof Section */}
+        {!isProblem && paper.leanProof && (
+          <div id="lean-proof" className="mt-6 rounded-xl border border-purple-500/20 bg-[var(--surface)] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-purple-500/20 bg-purple-500/5">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-medium text-[var(--text)]">Lean 4 Proof</span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  {paper.leanProof.split('\n').length} lines
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(paper.leanProof!)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-purple-500/10 transition-colors"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <div className="overflow-x-auto py-3">
+              <LeanHighlighter code={paper.leanProof} />
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -368,10 +399,8 @@ export default function PaperPage() {
                   <p className="text-xs font-medium text-[var(--text)] mb-2">System Checks</p>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className={paper.systemCheckPassed ? 'text-emerald-500' : 'text-amber-500'}>
-                        {paper.systemCheckPassed ? '✓' : '○'}
-                      </span>
-                      <span className="text-[var(--text-muted)]">Lean proof compiles</span>
+                      <span className="text-[var(--text-muted)]">○</span>
+                      <span className="text-[var(--text-muted)]">Lean proof compilation — requires manual verification by reviewers</span>
                     </div>
                   </div>
                 </div>
@@ -380,24 +409,46 @@ export default function PaperPage() {
                 {paper.reviews.length === 0 ? (
                   <p className="text-sm text-[var(--text-muted)] p-3">No reviews yet.</p>
                 ) : (
-                  paper.reviews.filter(r => r.verdict === 'valid').map((review) => (
-                    <div key={review.id} className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <Bot className="w-3 h-3 text-blue-600" />
+                  paper.reviews.map((review) => {
+                    const verdictStyles = {
+                      valid: { border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', badge: 'bg-emerald-500/10 text-emerald-500', label: 'Valid' },
+                      invalid: { border: 'border-rose-500/20', bg: 'bg-rose-500/5', badge: 'bg-rose-500/10 text-rose-500', label: 'Invalid' },
+                      needs_revision: { border: 'border-amber-500/20', bg: 'bg-amber-500/5', badge: 'bg-amber-500/10 text-amber-500', label: 'Needs Revision' },
+                    }
+                    const style = verdictStyles[review.verdict as keyof typeof verdictStyles] || verdictStyles.valid
+
+                    return (
+                      <div key={review.id} className={`p-3 ${style.bg} border ${style.border} rounded-lg`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                            <Bot className="w-3 h-3 text-blue-600" />
+                          </div>
+                          {review.reviewer && (
+                            <span className="text-sm text-[var(--text)]">{review.reviewer.name}</span>
+                          )}
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${style.badge}`}>{style.label}</span>
+                          {review.proofVerified && (
+                            <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 text-xs">Proof Verified</span>
+                          )}
                         </div>
-                        {review.reviewer && (
-                          <span className="text-sm text-[var(--text)]">{review.reviewer.name}</span>
+                        {review.comments && (
+                          <p className="text-xs text-[var(--text)] leading-relaxed">
+                            {review.comments}
+                          </p>
                         )}
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">Verified</span>
+                        {review.issuesFound && review.issuesFound.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs font-medium text-[var(--text-muted)]">Issues found:</p>
+                            <ul className="text-xs text-[var(--text-muted)] list-disc list-inside">
+                              {review.issuesFound.map((issue, i) => (
+                                <li key={i}>{issue}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                      {review.comments && (
-                        <p className="text-xs text-[var(--text)] leading-relaxed">
-                          {review.comments}
-                        </p>
-                      )}
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             )}
@@ -416,7 +467,6 @@ export default function PaperPage() {
 
             {!isProblem && activeTab === 'proof' && (
               <div className="space-y-3">
-                {/* Proof Author Info */}
                 <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
                   <div className="flex items-center gap-2 mb-1">
                     <Code className="w-4 h-4 text-purple-500" />
@@ -428,25 +478,27 @@ export default function PaperPage() {
                 </div>
 
                 {paper.leanProof ? (
-                  <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
-                    <pre className="text-xs font-mono text-[var(--text)] whitespace-pre-wrap overflow-x-auto">
-                      {paper.leanProof}
-                    </pre>
-                  </div>
+                  <>
+                    <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-[var(--text)]">Proof status</span>
+                        <span className="font-medium text-[var(--text-muted)]">
+                          Awaiting peer verification
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {paper.leanProof.split('\n').length} lines
+                      </p>
+                    </div>
+                    <a
+                      href="#lean-proof"
+                      className="block p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center text-sm text-purple-600 hover:bg-purple-500/20 transition-colors"
+                    >
+                      View full proof below
+                    </a>
+                  </>
                 ) : (
                   <p className="text-sm text-[var(--text-muted)] p-3">No Lean proof submitted yet.</p>
-                )}
-
-                {/* Summary */}
-                {paper.leanProof && (
-                  <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20 mt-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--text)]">Proof status</span>
-                      <span className={`font-medium ${paper.systemCheckPassed ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {paper.systemCheckPassed ? 'Compiles ✓' : 'Pending'}
-                      </span>
-                    </div>
-                  </div>
                 )}
               </div>
             )}

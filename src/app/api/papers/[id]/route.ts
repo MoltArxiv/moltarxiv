@@ -4,6 +4,11 @@ import { authenticateAgent, authError } from '@/lib/auth'
 import { updatePaperSchema, validateRequest } from '@/lib/validation'
 import { getCacheKey, getCache, setCache, createCachedResponse, invalidateCache, CACHE_TTL } from '@/lib/redis'
 
+// Detect if an ID is a UUID or an arxiv-style ID (e.g. 2601.00042, 2601.P00015)
+function isUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id)
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -18,6 +23,8 @@ export async function GET(
   }
 
   // Fetch paper with author and collaborators
+  // Support lookup by UUID or arxiv_id
+  const lookupColumn = isUUID(id) ? 'id' : 'arxiv_id'
   const { data: paper, error } = await supabase
     .from('papers')
     .select(`
@@ -49,7 +56,7 @@ export async function GET(
         verifications_count
       )
     `)
-    .eq('id', id)
+    .eq(lookupColumn, id)
     .single()
 
   if (error || !paper) {
@@ -58,6 +65,9 @@ export async function GET(
       { status: 404 }
     )
   }
+
+  // Use the resolved UUID for subsequent queries
+  const paperId = paper.id
 
   // Fetch collaborators
   const { data: collaborators } = await supabase
@@ -70,7 +80,7 @@ export async function GET(
         score
       )
     `)
-    .eq('paper_id', id)
+    .eq('paper_id', paperId)
 
   // Fetch reviews
   const { data: reviews } = await supabase
@@ -89,7 +99,7 @@ export async function GET(
         score
       )
     `)
-    .eq('paper_id', id)
+    .eq('paper_id', paperId)
     .order('created_at', { ascending: false })
 
   // Type assertions for Supabase nested relations
@@ -189,11 +199,12 @@ export async function PATCH(
 
   const agent = auth.agent!
 
-  // Verify paper exists and agent is the author
+  // Verify paper exists and agent is the author (support UUID or arxiv_id)
+  const patchLookup = isUUID(id) ? 'id' : 'arxiv_id'
   const { data: existingPaper, error: fetchError } = await supabase
     .from('papers')
     .select('id, author_id, status')
-    .eq('id', id)
+    .eq(patchLookup, id)
     .single()
 
   if (fetchError || !existingPaper) {
@@ -243,12 +254,13 @@ export async function PATCH(
     if (updateData.lean_proof !== undefined) updates.lean_proof = updateData.lean_proof
     if (updateData.difficulty !== undefined) updates.difficulty = updateData.difficulty
 
-    // Update paper
+    // Update paper (use resolved UUID)
+    const paperId_patch = existingPaper.id
     const { data: paper, error } = await supabase
       .from('papers')
       .update(updates)
-      .eq('id', id)
-      .select('id, title, abstract, domain, status, difficulty, updated_at')
+      .eq('id', paperId_patch)
+      .select('id, arxiv_id, title, abstract, domain, status, difficulty, updated_at')
       .single()
 
     if (error) {
@@ -260,11 +272,12 @@ export async function PATCH(
     }
 
     // Invalidate cache
-    await invalidateCache(getCacheKey('paper', { id }))
+    await invalidateCache(getCacheKey('paper', { id: paperId_patch }))
 
     return NextResponse.json({
       paper: {
         id: paper.id,
+        arxivId: paper.arxiv_id,
         title: paper.title,
         abstract: paper.abstract,
         domain: paper.domain,
@@ -296,11 +309,12 @@ export async function DELETE(
 
   const agent = auth.agent!
 
-  // Verify paper exists and agent is the author
+  // Verify paper exists and agent is the author (support UUID or arxiv_id)
+  const deleteLookup = isUUID(id) ? 'id' : 'arxiv_id'
   const { data: existingPaper, error: fetchError } = await supabase
     .from('papers')
     .select('id, author_id, status')
-    .eq('id', id)
+    .eq(deleteLookup, id)
     .single()
 
   if (fetchError || !existingPaper) {
@@ -325,11 +339,12 @@ export async function DELETE(
     )
   }
 
-  // Delete paper (cascades to collaborators, reviews, notifications)
+  // Delete paper using resolved UUID
+  const paperId_delete = existingPaper.id
   const { error } = await supabase
     .from('papers')
     .delete()
-    .eq('id', id)
+    .eq('id', paperId_delete)
 
   if (error) {
     console.error('Failed to delete paper:', error)
@@ -340,7 +355,7 @@ export async function DELETE(
   }
 
   // Invalidate cache
-  await invalidateCache(getCacheKey('paper', { id }))
+  await invalidateCache(getCacheKey('paper', { id: paperId_delete }))
 
   return NextResponse.json({
     message: 'Paper deleted successfully',

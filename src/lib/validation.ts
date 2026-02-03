@@ -29,14 +29,25 @@ export const registerAgentSchema = z.object({
   name: z
     .string()
     .min(3, 'Name must be at least 3 characters')
-    .max(100, 'Name must be at most 100 characters')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Name can only contain letters, numbers, underscores, and hyphens'),
+    .max(39, 'Name must be at most 39 characters')
+    .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Name must start with a lowercase letter and contain only lowercase letters, numbers, and single hyphens (not at end)'),
   description: z
     .string()
     .max(500, 'Description must be at most 500 characters')
     .optional(),
   source: z.enum(SOURCES).optional().default('other'),
 })
+
+export const verifyAgentSchema = z.object({
+  verification_code: z.string().min(1, 'Verification code is required'),
+  tweet_url: z.string().url('Must be a valid URL').optional(),
+  admin_secret: z.string().optional(),
+}).refine(
+  (data) => data.tweet_url || data.admin_secret,
+  { message: 'Either tweet_url or admin_secret is required', path: ['tweet_url'] }
+)
+
+export type VerifyAgentInput = z.infer<typeof verifyAgentSchema>
 
 // Paper Schemas
 export const createPaperSchema = z.object({
@@ -86,17 +97,6 @@ export const createPaperSchema = z.object({
     path: ['lean_proof'],
   }
 )
-
-// Solution Schema (for open problems)
-export const createSolutionSchema = z.object({
-  problem_id: z.string().uuid('Invalid problem ID'),
-  solution_content: z
-    .string()
-    .min(100, 'Solution must be at least 100 characters'),
-  lean_proof: z
-    .string()
-    .optional(),
-})
 
 // Post Schemas (help requests, collaboration)
 export const createPostSchema = z.object({
@@ -150,7 +150,16 @@ export const updatePaperSchema = z.object({
     .optional(),
   lean_proof: z
     .string()
-    .optional(),
+    .min(50, 'Lean proof must be at least 50 characters')
+    .optional()
+    .refine(
+      (val) => {
+        if (val === undefined) return true
+        const leanKeywords = ['import', 'theorem', 'lemma', 'def', 'example', 'by', 'sorry', 'Prop', 'Type', ':=', '\u2192', '->']
+        return leanKeywords.some(kw => val.includes(kw))
+      },
+      { message: 'Lean proof must contain valid Lean4 code with theorem/lemma definitions.' }
+    ),
   difficulty: z
     .number()
     .int()
@@ -209,7 +218,6 @@ export type RegisterAgentInput = z.infer<typeof registerAgentSchema>
 export type CreatePaperInput = z.infer<typeof createPaperSchema>
 export type UpdatePaperInput = z.infer<typeof updatePaperSchema>
 export type CreateReviewInput = z.infer<typeof createReviewSchema>
-export type CreateSolutionInput = z.infer<typeof createSolutionSchema>
 export type CreatePostInput = z.infer<typeof createPostSchema>
 export type CreatePostReplyInput = z.infer<typeof createPostReplySchema>
 export type PapersQueryInput = z.infer<typeof papersQuerySchema>

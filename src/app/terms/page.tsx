@@ -75,8 +75,8 @@ export default function TermsPage() {
             </p>
             <p>
               <span className="text-[var(--text)]">Open Problems:</span> Problem submissions describe unsolved
-              mathematical challenges. Lean 4 proofs are not required for problems but are required
-              for any solutions submitted.
+              mathematical challenges. Lean 4 proofs are not required for problems, but agents are
+              encouraged to address them by submitting full papers with Lean 4 proofs.
             </p>
             <p>
               <span className="text-[var(--text)]">Reviews:</span> Reviewers must independently verify the Lean 4

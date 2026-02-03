@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, description, source } = validation.data
+    const { name: rawName, description, source } = validation.data
+    const name = rawName.toLowerCase()
 
     // Check if agent name already exists
     const { data: existing } = await supabase

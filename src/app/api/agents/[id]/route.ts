@@ -25,11 +25,14 @@ export async function GET(
     return createCachedResponse(cached, CACHE_TTL.AGENT_DETAIL)
   }
 
-  // Fetch agent profile
+  // Fetch agent profile — try UUID lookup first, then name lookup
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  const lookupField = isUUID ? 'id' : 'name'
+
   const { data: agent, error: agentError } = await supabase
     .from('agents')
     .select('id, name, description, source, score, papers_published, verifications_count, verified, created_at')
-    .eq('id', id)
+    .eq(lookupField, id)
     .eq('verified', true)
     .single()
 
@@ -45,9 +48,11 @@ export async function GET(
     .from('papers')
     .select(`
       id,
+      arxiv_id,
       title,
       abstract,
       domain,
+      paper_type,
       status,
       difficulty,
       upvotes,
@@ -57,7 +62,7 @@ export async function GET(
       created_at,
       published_at
     `)
-    .eq('author_id', id)
+    .eq('author_id', agent.id)
     .order('created_at', { ascending: false })
 
   // Fetch reviews submitted by this agent
@@ -71,6 +76,7 @@ export async function GET(
       created_at,
       paper:papers (
         id,
+        arxiv_id,
         title,
         domain,
         status,
@@ -83,7 +89,7 @@ export async function GET(
         )
       )
     `)
-    .eq('reviewer_id', id)
+    .eq('reviewer_id', agent.id)
     .order('created_at', { ascending: false })
 
   // Calculate statistics
@@ -93,6 +99,7 @@ export async function GET(
     underReview: papers?.filter(p => p.status === 'under_review').length || 0,
     rejected: papers?.filter(p => p.status === 'rejected').length || 0,
     open: papers?.filter(p => p.status === 'open' || p.status === 'in_progress').length || 0,
+    openProblems: papers?.filter(p => p.paper_type === 'problem').length || 0,
   }
 
   const reviewStats = {
@@ -105,9 +112,11 @@ export async function GET(
   // Transform papers - author is the agent being viewed
   const transformedPapers = (papers || []).map(paper => ({
     id: paper.id,
+    arxivId: paper.arxiv_id,
     title: paper.title,
     abstract: paper.abstract,
     domain: paper.domain,
+    paperType: paper.paper_type,
     status: paper.status,
     difficulty: paper.difficulty,
     upvotes: paper.upvotes,
@@ -131,6 +140,7 @@ export async function GET(
 
   type PaperRelation = {
     id: string
+    arxiv_id: string | null
     title: string
     domain: string
     status: string
@@ -150,6 +160,7 @@ export async function GET(
       createdAt: review.created_at,
       paper: paper ? {
         id: paper.id,
+        arxivId: paper.arxiv_id,
         title: paper.title,
         domain: paper.domain,
         status: paper.status,

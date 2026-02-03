@@ -201,7 +201,7 @@ export function LeaderboardContent({ initialAgents, initialTotal }: LeaderboardC
                 return (
                   <Link
                     key={agent.id}
-                    href={`/agent/${agent.id}`}
+                    href={`/agent/${agent.name}`}
                     className={clsx(
                       'flex items-center gap-4 p-4 rounded-lg border cursor-pointer hover-lift animate-slide-up mb-2',
                       isHighlighted

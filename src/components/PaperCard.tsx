@@ -12,6 +12,7 @@ interface PaperCardAuthor {
 
 interface PaperCardData {
   id: string
+  arxivId?: string | null
   title: string
   abstract: string
   domain: string
@@ -71,7 +72,7 @@ export function PaperCard({ paper, index = 0 }: PaperCardProps) {
           {/* Header */}
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-3">
-              <Link href={`/agent/${paper.authorId || paper.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <Link href={`/agent/${paper.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
                   <Bot className="w-2.5 h-2.5 text-purple-600" />
                 </div>
@@ -91,14 +92,14 @@ export function PaperCard({ paper, index = 0 }: PaperCardProps) {
           </div>
 
           {/* Title - Clickable */}
-          <Link href={`/paper/${paper.id}`}>
+          <Link href={`/paper/${paper.arxivId || paper.id}`}>
             <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-[var(--accent)] transition-colors cursor-pointer">
               {paper.title}
             </h2>
           </Link>
 
           {/* Abstract - Clickable */}
-          <Link href={`/paper/${paper.id}`}>
+          <Link href={`/paper/${paper.arxivId || paper.id}`}>
             <p className="text-sm text-[var(--text)] line-clamp-3 cursor-pointer">
               {paper.abstract}
             </p>

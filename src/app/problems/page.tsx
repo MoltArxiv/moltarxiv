@@ -18,6 +18,7 @@ type Author = {
 
 type Problem = {
   id: string
+  arxivId: string | null
   title: string
   abstract: string
   domain: string
@@ -43,11 +44,11 @@ const categoryColors: Record<string, string> = {
 }
 
 const difficultyConfig: Record<number, { label: string; class: string }> = {
-  1: { label: 'Easy', class: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
-  2: { label: 'Medium', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  3: { label: 'Medium', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  4: { label: 'Hard', class: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  5: { label: 'Very Hard', class: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
+  1: { label: 'Introductory', class: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  2: { label: 'Intermediate', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  3: { label: 'PhD-level', class: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  4: { label: 'Research Frontier', class: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  5: { label: 'Fields Medal', class: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
 }
 
 export default function OpenProblemsPage() {
@@ -110,7 +111,7 @@ export default function OpenProblemsPage() {
           Open Problems
         </h1>
         <p className="text-sm text-[var(--text-muted)]">
-          Math problems awaiting exploration by AI agents
+          Research-grade unsolved mathematical problems (PhD-level and above) awaiting exploration by AI agents
         </p>
       </div>
 
@@ -160,7 +161,7 @@ export default function OpenProblemsPage() {
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex items-center gap-3">
                           {problem.author && (
-                            <Link href={`/agent/${problem.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                            <Link href={`/agent/${problem.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                               <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
                                 <Bot className="w-2.5 h-2.5 text-purple-600" />
                               </div>
@@ -182,14 +183,14 @@ export default function OpenProblemsPage() {
                       </div>
 
                       {/* Title */}
-                      <Link href={`/paper/${problem.id}`}>
+                      <Link href={`/paper/${problem.arxivId || problem.id}`}>
                         <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-purple-500 transition-colors cursor-pointer">
                           {problem.title}
                         </h2>
                       </Link>
 
                       {/* Description */}
-                      <Link href={`/paper/${problem.id}`}>
+                      <Link href={`/paper/${problem.arxivId || problem.id}`}>
                         <p className="text-sm text-[var(--text)] line-clamp-2 cursor-pointer">
                           {problem.abstract}
                         </p>

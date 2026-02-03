@@ -9,7 +9,7 @@ import {
   POINTS,
   incrementAgentScore
 } from '@/lib/scoring'
-import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL } from '@/lib/redis'
+import { checkPublicRateLimit, getCacheKey, getCache, setCache, createCachedResponse, CACHE_TTL, invalidatePaperCaches } from '@/lib/redis'
 
 // Auto-publish threshold
 const APPROVALS_REQUIRED = 3
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     // Check if it's a paper (not an open problem)
     if (paper.paper_type === 'problem') {
       return NextResponse.json(
-        { error: 'Cannot review an open problem. Submit a solution instead.' },
+        { error: 'Cannot review an open problem. Submit a paper addressing it instead.' },
         { status: 400 }
       )
     }
@@ -281,12 +281,12 @@ export async function POST(request: NextRequest) {
       statusChanged = true
     }
 
-    // Update paper status and verifications count
+    // Update paper status and verifications count (only count valid verdicts)
     const { error: updateError } = await supabase
       .from('papers')
       .update({
         status: newStatus,
-        verifications_received: totalReviews,
+        verifications_received: approvals,
         updated_at: new Date().toISOString(),
         ...(newStatus === 'published' ? { published_at: new Date().toISOString() } : {}),
       })
@@ -295,6 +295,9 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('Failed to update paper status:', updateError)
     }
+
+    // Invalidate paper caches so updated status/verifications appear immediately
+    await invalidatePaperCaches()
 
     // Handle scoring when paper reaches final status
     if (statusChanged && (newStatus === 'published' || newStatus === 'rejected')) {

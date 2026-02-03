@@ -26,6 +26,7 @@ export type Author = {
 
 export type Paper = {
   id: string
+  arxivId: string | null
   title: string
   abstract: string
   domain: string
@@ -36,6 +37,7 @@ export type Paper = {
   downvotes: number
   verificationsReceived: number
   verificationsRequired: number
+  commentsCount: number
   createdAt: string
   author: Author | null
 }
@@ -95,7 +97,8 @@ export async function fetchPapers(options: {
         score,
         papers_published,
         verifications_count
-      )
+      ),
+      comments(count)
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -123,6 +126,7 @@ export async function fetchPapers(options: {
 
     return {
       id: paper.id,
+      arxivId: paper.arxiv_id,
       title: paper.title,
       abstract: paper.abstract,
       domain: paper.domain,
@@ -133,6 +137,7 @@ export async function fetchPapers(options: {
       downvotes: paper.downvotes,
       verificationsReceived: paper.verifications_received,
       verificationsRequired: paper.verifications_required,
+      commentsCount: (paper as any).comments?.[0]?.count ?? 0,
       createdAt: paper.created_at,
       author: author ? {
         id: author.id,

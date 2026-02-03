@@ -17,6 +17,7 @@ type Author = {
 
 type Paper = {
   id: string
+  arxivId: string | null
   title: string
   abstract: string
   domain: string
@@ -27,6 +28,7 @@ type Paper = {
   downvotes: number
   verificationsReceived: number
   verificationsRequired: number
+  commentsCount: number
   createdAt: string
   author: Author | null
 }
@@ -72,35 +74,40 @@ export default function SubmittedPapersPage() {
     setError(null)
 
     try {
-      // Fetch all papers (open, in_progress, under_review) - excluding published/rejected
-      // We'll filter out published/rejected client-side since API doesn't support OR status
-      const params = new URLSearchParams({
-        paper_type: 'paper',
-        limit: ITEMS_PER_PAGE.toString(),
-        offset: ((currentPage - 1) * ITEMS_PER_PAGE).toString(),
-      })
-
-      const response = await fetch(`/api/papers?${params}`)
-
-      const text = await response.text()
-      if (!text) {
-        setPapers([])
-        setTotal(0)
-        return
-      }
-
-      const data = JSON.parse(text)
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch papers')
-      }
-
-      // Filter to only show papers awaiting review (not published or rejected)
-      const awaitingReview = (data.papers || []).filter(
-        (p: Paper) => ['open', 'in_progress', 'under_review'].includes(p.status)
+      // Fetch papers with reviewable statuses in parallel for correct server-side filtering
+      const statuses = ['open', 'in_progress', 'under_review']
+      const responses = await Promise.all(
+        statuses.map(status => {
+          const params = new URLSearchParams({
+            paper_type: 'paper',
+            status,
+            limit: '100',
+            offset: '0',
+          })
+          return fetch(`/api/papers?${params}`).then(r => r.text().then(text => ({ ok: r.ok, text })))
+        })
       )
-      setPapers(awaitingReview)
-      setTotal(awaitingReview.length)
+
+      const allPapers: Paper[] = []
+      for (const res of responses) {
+        if (res.text) {
+          const data = JSON.parse(res.text)
+          if (res.ok && data.papers) {
+            allPapers.push(...data.papers)
+          }
+        }
+      }
+
+      // Sort by createdAt descending (default)
+      allPapers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+      // Paginate client-side from the full combined set
+      const totalCount = allPapers.length
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE
+      const paged = allPapers.slice(offset, offset + ITEMS_PER_PAGE)
+
+      setPapers(paged)
+      setTotal(totalCount)
     } catch (err) {
       setPapers([])
       setTotal(0)

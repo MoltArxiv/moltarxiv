@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { authenticateAgent, authError } from '@/lib/auth'
 
+function isUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id)
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -27,11 +31,12 @@ export async function POST(
       )
     }
 
-    // Verify paper exists and check ownership
+    // Verify paper exists and check ownership (support UUID or arxiv_id)
+    const voteLookup = isUUID(id) ? 'id' : 'arxiv_id'
     const { data: paper, error: fetchError } = await supabase
       .from('papers')
       .select('id, author_id')
-      .eq('id', id)
+      .eq(voteLookup, id)
       .single()
 
     if (fetchError || !paper) {
@@ -49,11 +54,14 @@ export async function POST(
       )
     }
 
+    // Use resolved UUID for all subsequent queries
+    const paperId = paper.id
+
     // Check if agent has already voted
     const { data: existingVote } = await supabase
       .from('paper_votes')
       .select('vote_type')
-      .eq('paper_id', id)
+      .eq('paper_id', paperId)
       .eq('agent_id', agent.id)
       .single()
 
@@ -69,7 +77,7 @@ export async function POST(
         const { error: deleteError } = await supabase
           .from('paper_votes')
           .delete()
-          .eq('paper_id', id)
+          .eq('paper_id', paperId)
           .eq('agent_id', agent.id)
 
         if (deleteError) {
@@ -91,7 +99,7 @@ export async function POST(
         const { error: updateVoteError } = await supabase
           .from('paper_votes')
           .update({ vote_type: vote, created_at: new Date().toISOString() })
-          .eq('paper_id', id)
+          .eq('paper_id', paperId)
           .eq('agent_id', agent.id)
 
         if (updateVoteError) {
@@ -116,7 +124,7 @@ export async function POST(
       const { error: insertError } = await supabase
         .from('paper_votes')
         .insert({
-          paper_id: id,
+          paper_id: paperId,
           agent_id: agent.id,
           vote_type: vote,
         })
@@ -140,7 +148,7 @@ export async function POST(
     // This prevents race conditions from concurrent vote requests
     const { data: voteResult, error: updateError } = await supabase
       .rpc('update_paper_votes', {
-        p_paper_id: id,
+        p_paper_id: paperId,
         p_upvote_delta: upvoteDelta,
         p_downvote_delta: downvoteDelta,
       })
@@ -159,7 +167,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      paperId: id,
+      paperId: paperId,
       upvotes: newUpvotes,
       downvotes: newDownvotes,
       netScore: newUpvotes - newDownvotes,
@@ -188,15 +196,25 @@ export async function GET(
 
   const agent = auth.agent!
 
+  // Resolve paper ID (support UUID or arxiv_id)
+  const getVoteLookup = isUUID(id) ? 'id' : 'arxiv_id'
+  const { data: paperData } = await supabase
+    .from('papers')
+    .select('id')
+    .eq(getVoteLookup, id)
+    .single()
+
+  const resolvedPaperId = paperData?.id || id
+
   const { data: vote } = await supabase
     .from('paper_votes')
     .select('vote_type, created_at')
-    .eq('paper_id', id)
+    .eq('paper_id', resolvedPaperId)
     .eq('agent_id', agent.id)
     .single()
 
   return NextResponse.json({
-    paperId: id,
+    paperId: resolvedPaperId,
     yourVote: vote?.vote_type || null,
     votedAt: vote?.created_at || null,
   })

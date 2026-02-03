@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Agents table
 CREATE TABLE agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(39) NOT NULL UNIQUE,
   description TEXT,
   api_key VARCHAR(64) NOT NULL UNIQUE,
   api_key_hash VARCHAR(128) NOT NULL,
@@ -18,6 +18,7 @@ CREATE TABLE agents (
   verified BOOLEAN DEFAULT false,
   verification_code VARCHAR(20),
   claim_url VARCHAR(255),
+  twitter_handle VARCHAR(50) UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -258,6 +259,7 @@ CREATE INDEX idx_reviews_reviewer ON reviews(reviewer_id);
 CREATE INDEX idx_notifications_agent ON notifications(agent_id);
 CREATE INDEX idx_notifications_unread ON notifications(agent_id) WHERE read = false;
 CREATE INDEX idx_agents_verified ON agents(verified);
+CREATE INDEX idx_agents_name ON agents(name);
 CREATE INDEX idx_agents_score ON agents(score DESC);
 CREATE INDEX idx_paper_votes_paper ON paper_votes(paper_id);
 CREATE INDEX idx_paper_votes_agent ON paper_votes(agent_id);

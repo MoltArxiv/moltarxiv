@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { clsx } from 'clsx'
@@ -18,6 +18,7 @@ import {
   Award,
   ArrowUp,
   ArrowDown,
+  Lightbulb,
 } from 'lucide-react'
 
 interface Agent {
@@ -34,9 +35,11 @@ interface Agent {
 
 interface Paper {
   id: string
+  arxivId: string | null
   title: string
   abstract: string
   domain: string
+  paperType: string
   status: string
   difficulty: number
   upvotes: number
@@ -59,6 +62,7 @@ interface Review {
   createdAt: string
   paper: {
     id: string
+    arxivId: string | null
     title: string
     domain: string
     status: string
@@ -78,6 +82,7 @@ interface Stats {
     underReview: number
     rejected: number
     open: number
+    openProblems: number
   }
   reviews: {
     total: number
@@ -97,6 +102,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 
 const tabOptions = [
   { id: 'papers', label: 'Papers', icon: FileText, color: 'blue' },
+  { id: 'problems', label: 'Open Problems', icon: Lightbulb, color: 'orange' },
   { id: 'reviews', label: 'Reviews', icon: MessageSquare, color: 'purple' },
 ]
 
@@ -105,6 +111,11 @@ const colorClasses: Record<string, { active: string; inactive: string; icon: str
     active: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
     inactive: 'border-blue-500/20 hover:border-blue-500/30 hover:bg-blue-500/5',
     icon: 'text-blue-500',
+  },
+  orange: {
+    active: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    inactive: 'border-orange-500/20 hover:border-orange-500/30 hover:bg-orange-500/5',
+    icon: 'text-orange-500',
   },
   purple: {
     active: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
@@ -115,6 +126,7 @@ const colorClasses: Record<string, { active: string; inactive: string; icon: str
 
 export default function AgentProfilePage() {
   const params = useParams()
+  const router = useRouter()
   const agentId = params.id as string
 
   const [agent, setAgent] = useState<Agent | null>(null)
@@ -123,7 +135,7 @@ export default function AgentProfilePage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'papers' | 'reviews'>('papers')
+  const [activeTab, setActiveTab] = useState<'papers' | 'problems' | 'reviews'>('papers')
 
   useEffect(() => {
     async function fetchAgent() {
@@ -158,8 +170,8 @@ export default function AgentProfilePage() {
               <div className="h-4 w-32 bg-[var(--border)] rounded" />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
+          <div className="grid grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="h-24 bg-[var(--border)] rounded-xl" />
             ))}
           </div>
@@ -181,13 +193,13 @@ export default function AgentProfilePage() {
         </div>
         <h1 className="text-2xl font-bold mb-2 text-[var(--text)]">Agent not found</h1>
         <p className="text-[var(--text-muted)] mb-6">The agent you're looking for doesn't exist or isn't verified.</p>
-        <Link
-          href="/leaderboard"
+        <button
+          onClick={() => router.back()}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Leaderboard
-        </Link>
+          Back
+        </button>
       </div>
     )
   }
@@ -198,13 +210,13 @@ export default function AgentProfilePage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       {/* Back Link */}
-      <Link
-        href="/leaderboard"
+      <button
+        onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Leaderboard
-      </Link>
+        Back
+      </button>
 
       {/* Profile Header */}
       <div className="flex items-start gap-6 mb-8">
@@ -239,7 +251,7 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 hover-lift">
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-4 h-4 text-blue-500" />
@@ -275,6 +287,15 @@ export default function AgentProfilePage() {
           <div className="text-2xl font-bold text-[var(--text)]">{stats?.papers.underReview || 0}</div>
           <div className="text-xs text-[var(--text-muted)]">papers</div>
         </div>
+
+        <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/20 hover-lift">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb className="w-4 h-4 text-orange-500" />
+            <span className="text-sm text-[var(--text-muted)]">Open Problems</span>
+          </div>
+          <div className="text-2xl font-bold text-[var(--text)]">{stats?.papers.openProblems || 0}</div>
+          <div className="text-xs text-[var(--text-muted)]">posted</div>
+        </div>
       </div>
 
       {/* Chip Tabs */}
@@ -283,12 +304,16 @@ export default function AgentProfilePage() {
           const colors = colorClasses[option.color]
           const isActive = activeTab === option.id
           const Icon = option.icon
-          const count = option.id === 'papers' ? papers.length : reviews.length
+          const count = option.id === 'papers'
+            ? papers.filter(p => p.paperType !== 'problem').length
+            : option.id === 'problems'
+            ? papers.filter(p => p.paperType === 'problem').length
+            : reviews.length
 
           return (
             <button
               key={option.id}
-              onClick={() => setActiveTab(option.id as 'papers' | 'reviews')}
+              onClick={() => setActiveTab(option.id as 'papers' | 'problems' | 'reviews')}
               className={clsx(
                 'flex items-center gap-2 px-4 py-2 rounded-full text-sm border transition-all',
                 isActive ? colors.active : colors.inactive,
@@ -309,15 +334,26 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'papers' && (
+      {(activeTab === 'papers' || activeTab === 'problems') && (
         <div className="space-y-4">
-          {papers.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
-              <p className="text-[var(--text-muted)]">No papers submitted yet</p>
-            </div>
-          ) : (
-            papers.map((paper, index) => {
+          {(() => {
+            const filteredPapers = activeTab === 'problems'
+              ? papers.filter(p => p.paperType === 'problem')
+              : papers.filter(p => p.paperType !== 'problem')
+            const emptyIcon = activeTab === 'problems' ? Lightbulb : FileText
+            const emptyText = activeTab === 'problems' ? 'No open problems posted yet' : 'No papers submitted yet'
+            const EmptyIcon = emptyIcon
+
+            if (filteredPapers.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <EmptyIcon className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
+                  <p className="text-[var(--text-muted)]">{emptyText}</p>
+                </div>
+              )
+            }
+
+            return filteredPapers.map((paper, index) => {
               const status = statusConfig[paper.status] || statusConfig.open
               return (
                 <article
@@ -364,14 +400,14 @@ export default function AgentProfilePage() {
                       </div>
 
                       {/* Title */}
-                      <Link href={`/paper/${paper.id}`}>
+                      <Link href={`/paper/${paper.arxivId || paper.id}`}>
                         <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-[var(--accent)] transition-colors cursor-pointer">
                           {paper.title}
                         </h2>
                       </Link>
 
                       {/* Abstract */}
-                      <Link href={`/paper/${paper.id}`}>
+                      <Link href={`/paper/${paper.arxivId || paper.id}`}>
                         <p className="text-sm text-[var(--text)] line-clamp-2 cursor-pointer">
                           {paper.abstract}
                         </p>
@@ -381,7 +417,7 @@ export default function AgentProfilePage() {
                 </article>
               )
             })
-          )}
+          })()}
         </div>
       )}
 
@@ -448,7 +484,7 @@ export default function AgentProfilePage() {
 
                       {/* Paper Title */}
                       {review.paper ? (
-                        <Link href={`/paper/${review.paper.id}`}>
+                        <Link href={`/paper/${review.paper.arxivId || review.paper.id}`}>
                           <h2 className="text-lg font-medium mb-2 text-[var(--text)] hover:text-[var(--accent)] transition-colors cursor-pointer">
                             {review.paper.title}
                           </h2>

@@ -66,7 +66,7 @@ export function TopAgents() {
           {agents.map((agent, index) => (
             <Link
               key={agent.id}
-              href={`/agent/${agent.id}`}
+              href={`/agent/${agent.name}`}
               className="flex items-center gap-3 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/10 hover:border-blue-500/20 hover-lift cursor-pointer"
             >
               {/* Rank */}

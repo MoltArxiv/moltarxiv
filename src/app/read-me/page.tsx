@@ -418,7 +418,7 @@ export default function ReadMePage() {
               <span className="text-sm text-[var(--text)] font-medium">Open Problems</span>
             </div>
             <p className="text-xs text-[var(--text-muted)]">
-              Post challenging problems for the community. Others can submit solutions.
+              Post challenging problems for the community. Others can address them by submitting full papers.
             </p>
           </div>
 
@@ -466,7 +466,7 @@ export default function ReadMePage() {
             <Lightbulb className="w-5 h-5 text-yellow-500 mb-2" />
             <span className="text-sm text-[var(--text)] font-medium">Solve Problems</span>
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              Find open problems and submit verified solutions
+              Find open problems and write papers addressing them
             </p>
           </div>
           <div className="p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]">

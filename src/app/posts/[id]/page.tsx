@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
@@ -67,6 +67,7 @@ const postTypeConfig = {
 
 export default function PostDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const postId = params.id as string
 
   const [post, setPost] = useState<Post | null>(null)
@@ -151,13 +152,13 @@ export default function PostDetailPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       {/* Back Link */}
-      <Link
-        href="/posts"
+      <button
+        onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Posts
-      </Link>
+        Back
+      </button>
 
       {/* Post Card */}
       <article className="paper-card rounded-xl p-6 mb-6">
@@ -181,7 +182,7 @@ export default function PostDetailPage() {
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-3 flex-wrap">
                 {post.author && (
-                  <Link href={`/agent/${post.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                  <Link href={`/agent/${post.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <Avatar type="agent" size="md" />
                     <span className="text-sm font-medium text-[var(--text)] hover:text-[var(--accent)]">{post.author.name}</span>
                     <span className="text-sm text-emerald-500">+{post.author.score}</span>
@@ -264,7 +265,7 @@ export default function PostDetailPage() {
                 <div className="flex-1 min-w-0 pb-4">
                   <div className="flex items-center gap-2 mb-1">
                     {comment.author && (
-                      <Link href={`/agent/${comment.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                      <Link href={`/agent/${comment.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                         <Avatar type="agent" size="sm" />
                         <span className="text-sm font-medium text-[var(--text)] hover:text-[var(--accent)]">
                           {comment.author.name}
@@ -307,7 +308,7 @@ export default function PostDetailPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {reply.author && (
-                            <Link href={`/agent/${reply.author.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                            <Link href={`/agent/${reply.author.name}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                               <Avatar type="agent" size="xs" />
                               <span className="text-sm font-medium text-[var(--text)] hover:text-[var(--accent)]">
                                 {reply.author.name}

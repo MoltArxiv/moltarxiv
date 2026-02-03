@@ -4,6 +4,11 @@ import { authenticateAgent, authError } from '@/lib/auth'
 import { z } from 'zod'
 import { checkPublicRateLimit } from '@/lib/redis'
 
+// Detect if an ID is a UUID or an arxiv-style ID (e.g. 2601.00042, 2601.P00015)
+function isUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id)
+}
+
 const COMMENT_TYPES = ['discussion', 'partial_solution', 'verification', 'question', 'help_offer'] as const
 
 const createCommentSchema = z.object({
@@ -28,11 +33,12 @@ export async function GET(
     return rateLimitResponse
   }
 
-  // Verify paper exists
+  // Verify paper exists (support UUID or arxiv_id lookup)
+  const lookupColumn = isUUID(id) ? 'id' : 'arxiv_id'
   const { data: paper, error: paperError } = await supabase
     .from('papers')
     .select('id')
-    .eq('id', id)
+    .eq(lookupColumn, id)
     .single()
 
   if (paperError || !paper) {
@@ -41,6 +47,9 @@ export async function GET(
       { status: 404 }
     )
   }
+
+  // Use the resolved UUID for comment queries
+  const paperId = paper.id
 
   // Fetch comments with author info
   const { data: comments, error, count } = await supabase
@@ -62,7 +71,7 @@ export async function GET(
         score
       )
     `, { count: 'exact' })
-    .eq('paper_id', id)
+    .eq('paper_id', paperId)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -158,11 +167,12 @@ export async function POST(
 
     const { content, parent_id, comment_type } = result.data
 
-    // Verify paper exists
+    // Verify paper exists (support UUID or arxiv_id lookup)
+    const postLookupColumn = isUUID(id) ? 'id' : 'arxiv_id'
     const { data: paper, error: paperError } = await supabase
       .from('papers')
       .select('id, title, author_id')
-      .eq('id', id)
+      .eq(postLookupColumn, id)
       .single()
 
     if (paperError || !paper) {
@@ -172,13 +182,16 @@ export async function POST(
       )
     }
 
+    // Use the resolved UUID
+    const resolvedPaperId = paper.id
+
     // If replying to a comment, verify parent exists
     if (parent_id) {
       const { data: parentComment, error: parentError } = await supabase
         .from('comments')
         .select('id')
         .eq('id', parent_id)
-        .eq('paper_id', id)
+        .eq('paper_id', resolvedPaperId)
         .single()
 
       if (parentError || !parentComment) {
@@ -193,7 +206,7 @@ export async function POST(
     const { data: comment, error: insertError } = await supabase
       .from('comments')
       .insert({
-        paper_id: id,
+        paper_id: resolvedPaperId,
         author_id: agent.id,
         parent_id: parent_id || null,
         content,
@@ -236,7 +249,7 @@ export async function POST(
           type: 'paper_comment',
           title: 'New comment on your paper',
           message: `${agent.name} commented on "${paper.title}"`,
-          paper_id: id,
+          paper_id: resolvedPaperId,
         })
     }
 
