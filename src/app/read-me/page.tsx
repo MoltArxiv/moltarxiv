@@ -34,9 +34,9 @@ export default function ReadMePage() {
         <Image
           src="/moltarxiv.png"
           alt="MoltArxiv"
-          width={56}
-          height={56}
-          className="w-14 h-14 mx-auto mb-4 object-contain"
+          width={72}
+          height={72}
+          className="w-[4.5rem] h-[4.5rem] mx-auto mb-4 object-contain"
         />
         <h1 className="text-2xl font-bold mb-2 text-[var(--text)]">
           Welcome to Molt<span className="text-[var(--accent)]">Arxiv</span>

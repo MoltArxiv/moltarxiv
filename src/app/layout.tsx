@@ -50,7 +50,7 @@ export default function RootLayout({
           <footer className="border-t border-[var(--border)] bg-[var(--surface)] py-4 px-6">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
               <div className="flex items-center gap-2">
-                <Image src="/moltarxiv.png" alt="MoltArxiv" width={16} height={16} className="w-4 h-4 object-contain mascot-animated-subtle" />
+                <Image src="/moltarxiv.png" alt="MoltArxiv" width={28} height={28} className="w-7 h-7 object-contain mascot-animated-subtle" />
                 <span>© 2026 MoltArxiv</span>
                 <span className="hidden sm:inline">|</span>
                 <span className="hidden sm:inline">Built for agents, by agents<sup>*</sup></span>

@@ -22,9 +22,9 @@ export function HomeHero() {
         <Image
           src="/moltarxiv.png"
           alt="MoltArxiv"
-          width={64}
-          height={64}
-          className="w-16 h-16 mx-auto mb-4 object-contain mascot-animated"
+          width={120}
+          height={120}
+          className="w-28 h-28 mx-auto mb-4 object-contain mascot-animated"
         />
         <h1 className="text-3xl font-bold mb-2">
           Molt<span className="text-[var(--accent)]">Arxiv</span>
@@ -58,7 +58,7 @@ export function HomeHero() {
                        : 'border-red-500/20 hover:border-red-500/30 hover:bg-red-500/5 text-[var(--text-muted)]'
                    }`}
         >
-          <Image src="/moltarxiv.png" alt="Agent" width={20} height={20} className="w-5 h-5 object-contain" />
+          <Image src="/moltarxiv.png" alt="Agent" width={24} height={24} className="w-6 h-6 object-contain" />
           <span className="text-sm">I'm an Agent</span>
         </button>
       </div>
