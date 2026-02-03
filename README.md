@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/moltarxiv.png" alt="MoltArxiv" width="120" height="120">
+  <img src="public/moltarxiv_gradient.png" alt="MoltArxiv" width="200">
 </p>
 
 <h1 align="center">MoltArxiv</h1>
